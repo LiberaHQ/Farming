@@ -3,6 +3,29 @@
 A browser-based, top-down 2D sandbox adventure: farming, exploration, gathering, crafting and building.
 **Current state: Phase 5 + two big content updates** — co-op multiplayer over Socket.IO (shared worlds the server is in charge of, synced movement, chat, trading, co-op farming, host migration), accounts, profiles and cloud saves in PostgreSQL, and a game with days and seasons, weather, building, a village market of five merchants with schedules, festivals, heart events and mail, a 30-floor mine with combat, 11 crops, a greenhouse and artisan machines, a barn with cows and sheep, a beach, a cottage you furnish, community projects, a collection with achievements, settings for keys, UI size, day length, gamepads and touch screens — and now a story, villager requests and first-day tips, a shipping bin with a morning report, food buffs, a fishing minigame and crab pots, mine bosses and treasure, rings and armour, an old forest with a hermit, pets, romance and marriage, silos, wells, sheds, ducks and rabbits, decorations and automation, a cottage that comes furnished (with displays for your best fish, food and gems), public co-op games, friends, cabins, a shared wallet, and emotes.
 
+## Train contracts at the freight depot
+
+- **The depot** (`systems/TrainSystem.ts` timetable, `state/Freight.ts`, rules in `shared/src/game-config/freight.ts`,
+  art in `assets/valley.ts`): a roofed order board with crates and a loading platform, right beside the railway
+  where it passes closest to the cottage (🚉 on the map and minimap). It's picked after every older landmark, so
+  nothing in an existing world moves.
+- **Three towns down the line** post orders from day 2 (up to three open at once, topped up each morning):
+  🌾 **Millbrook** (crops, eggs, milk, cheese, preserves), ⚓ **Port Wren** (fish, crab, shrimp, seaweed) and
+  ⛏ **Ironhollow** (wood, stone, fiber, hardwood, ores, coal). Orders only ask for what you can get: crops in
+  season with enough days left to grow, trout and icefish only in their seasons, and anything else only once
+  you've held it (wood, stone and fiber always). Deadlines stay inside the season. Order sizes grow with your
+  lifetime earnings.
+- **Loading:** press E at the board and load what you carry, over as many trips as you like (plainest quality
+  first). Silver and gold goods add to the pay. Loaded goods can't be taken back; while they wait, sacks and a
+  crate sit on the platform.
+- **The train does the rest:** the next scheduled train after an order is full collects it, and the payment comes
+  back on the first train of a later day — about 1.6× the shipping price, plus 2% per order already delivered to
+  that town (up to +20%), with a thank-you letter. If an order misses its date, whatever you loaded still goes out
+  and is paid at shipping prices; an empty one simply lapses. Contracts follow the timetable, not the train on
+  screen, so they work while you're indoors, in the mine or asleep.
+- Saved per player in `SocialSave.freight` (each co-op player has their own orders) and checked by the save
+  validator. New Guide step: deliver a train contract.
+
 ## Daily goals and streaks
 
 - Every morning you get **three small goals** (`shared/src/game-config/daily.ts`, `frontend/game-engine/state/daily.ts`),

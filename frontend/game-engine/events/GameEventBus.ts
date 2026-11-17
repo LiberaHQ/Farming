@@ -39,7 +39,7 @@ export interface InventorySlotView {
   q?: 1 | 2;
 }
 
-export type PanelId = 'inventory' | 'crafting' | 'shop' | 'chest' | 'character' | 'menu' | 'dialogue' | 'map' | 'board' | 'trade' | 'mine' | 'mail' | 'collection' | 'settings' | 'shipping' | 'summary' | 'journal' | 'pet' | 'carnival' | 'calendar';
+export type PanelId = 'inventory' | 'crafting' | 'shop' | 'chest' | 'character' | 'menu' | 'dialogue' | 'map' | 'board' | 'trade' | 'mine' | 'mail' | 'collection' | 'settings' | 'shipping' | 'summary' | 'journal' | 'pet' | 'carnival' | 'calendar' | 'freight';
 
 /** The merchant you're trading with, and what's on offer. */
 export interface ShopContext {
@@ -71,6 +71,29 @@ export interface BoardRequestView {
   reward: number;
   text: string;
   done: boolean;
+}
+
+/** One order at the freight depot, as the board shows it. */
+export interface FreightOrderView {
+  id: number;
+  townName: string;
+  emoji: string;
+  itemId: ItemId;
+  itemName: string;
+  quantity: number;
+  loaded: number;
+  /** How many you're carrying right now. */
+  have: number;
+  /** "Fall 8", and days left including today (0 = last day is today). */
+  due: string;
+  daysLeft: number;
+  reward: number;
+  status: 'open' | 'ready' | 'shipped';
+  /** What it will pay once loaded (full, or a missed date at shipping prices). */
+  pay?: number;
+  partial?: boolean;
+  /** Where it is now, e.g. "Goes out on the 12:40 train". */
+  note: string;
 }
 
 export interface FriendView {
@@ -123,6 +146,12 @@ export interface GameEventMap {
   'board:state': { requests: BoardRequestView[]; friends: FriendView[] };
   /** Community projects: items given so far. */
   'community:state': CommunityProgress;
+  /** The freight depot: orders from the towns down the line, and today's remaining trains. */
+  'freight:state': {
+    trains: string[];
+    towns: Array<{ name: string; emoji: string; blurb: string; delivered: number; bonus: number }>;
+    orders: FreightOrderView[];
+  };
   'player:buffs': Array<{ kind: BuffKind; minutesLeft: number }>;
   'player:equipment': { ring?: ItemId; armor?: ItemId };
   /** Today's date, for the calendar. */
@@ -212,6 +241,8 @@ export interface GameCommandMap {
   'shop:barter': { index: number };
   'shop:gift': { slot: number };
   'board:deliver': { index: number };
+  /** Freight depot: load what you carry into an order. */
+  'freight:load': { id: number };
   'community:donate': { goal: CommunityGoalId; itemId: ItemId };
   'ship:add': { slot: number };
   'equip:wear': { slot: number };

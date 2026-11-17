@@ -19,6 +19,7 @@ import { SAVE_VERSION, type CarnivalSave, type IslandSave, type QuestSave, type 
 import { CARNIVAL_GAME_IDS } from '../game-config/carnival';
 import { FRUIT_TREE_MAX_FRUIT, isFruitTreeKind, isQuality } from '../game-config/orchard';
 import { DAILY_KINDS, type DailyKind, type DailySave } from '../game-config/daily';
+import { FREIGHT_MAX_CONTRACTS, FREIGHT_STATUSES, TOWN_IDS, freightUnitPrice, isTownId, type FreightContract, type FreightSave, type FreightStatus } from '../game-config/freight';
 import type { WorldObjectKind, WorldObjectSpec } from '../types/world';
 
 /**
@@ -143,6 +144,46 @@ function daily(v: Record<string, unknown>): DailySave {
   };
 }
 
+function freight(v: Record<string, unknown>): FreightSave {
+  const contracts = arr(v.contracts ?? [], FREIGHT_MAX_CONTRACTS, 'social.freight.contracts').map((raw, i): FreightContract => {
+    const c = isObj(raw) ? raw : fail(`social.freight.contracts[${i}]`);
+    const f = `social.freight.contracts[${i}]`;
+    if (!isTownId(c.town)) return fail(`${f}.town`);
+    if (!isItemId(c.itemId) || freightUnitPrice(c.itemId) <= 0) return fail(`${f}.itemId`);
+    if (!(FREIGHT_STATUSES as readonly unknown[]).includes(c.status)) return fail(`${f}.status`);
+    const quantity = int(c.quantity, 1, 999, `${f}.quantity`);
+    const opt = (key: string, min: number, max: number) => (c[key] === undefined ? {} : { [key]: int(c[key], min, max, `${f}.${key}`) });
+    return {
+      id: int(c.id, 1, 1e9, `${f}.id`),
+      town: c.town,
+      itemId: c.itemId,
+      quantity,
+      posted: int(c.posted, 0, 200_000, `${f}.posted`),
+      due: int(c.due, 0, 200_000, `${f}.due`),
+      reward: int(c.reward, 0, 10_000_000, `${f}.reward`),
+      loaded: int(c.loaded, 0, quantity, `${f}.loaded`),
+      bonus: int(c.bonus, 0, 10_000_000, `${f}.bonus`),
+      status: c.status as FreightStatus,
+      ...opt('readyDay', 0, 200_000),
+      ...opt('readyMinute', 0, 24 * 60 + TIME_CONFIG.dayEndMinute),
+      ...opt('shippedDay', 0, 200_000),
+      ...opt('shippedMinute', 0, 24 * 60),
+      ...opt('pay', 0, 10_000_000),
+      ...(c.partial === true ? { partial: true } : {}),
+    };
+  });
+  const done: FreightSave['done'] = {};
+  if (isObj(v.done)) for (const t of TOWN_IDS) if (v.done[t] !== undefined) done[t] = int(v.done[t], 0, 1_000_000, `social.freight.done.${t}`);
+  const ids = new Set<number>();
+  return {
+    day: int(v.day ?? 0, 0, 200_000, 'social.freight.day'),
+    nextId: int(v.nextId ?? 1, 1, 1e9, 'social.freight.nextId'),
+    contracts: contracts.filter((c) => !ids.has(c.id) && ids.add(c.id)),
+    done,
+    ...(v.intro === true ? { intro: true } : {}),
+  };
+}
+
 function social(v: unknown): SocialSave | undefined {
   if (v === undefined || v === null) return undefined;
   if (!isObj(v)) return fail('social must be an object');
@@ -184,6 +225,7 @@ function social(v: unknown): SocialSave | undefined {
     ...(isObj(v.ghost) ? { ghost: { stage: int(v.ghost.stage, 0, 3, 'social.ghost.stage'), asked: v.ghost.asked === true } } : {}),
     ...(v.trainsSeen === undefined ? {} : { trainsSeen: int(v.trainsSeen, 0, 1_000_000, 'social.trainsSeen') }),
     ...(isObj(v.daily) ? { daily: daily(v.daily) } : {}),
+    ...(isObj(v.freight) ? { freight: freight(v.freight) } : {}),
     ...(isObj(v.horse) && typeof v.horse.name === 'string'
       ? { horse: { name: v.horse.name.trim().slice(0, 16) || 'Clover', x: int(Math.round(Number(v.horse.x) || 0), 0, 100_000, 'horse.x'), y: int(Math.round(Number(v.horse.y) || 0), 0, 100_000, 'horse.y') } }
       : {}),

@@ -1376,6 +1376,29 @@ a.btn {
   color: #8a5a10;
 }
 
+/* ---------- Freight depot ---------- */
+
+.freight-trains {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: var(--muted, #cdbf9f);
+}
+
+.freight-order.done {
+  opacity: 0.8;
+}
+
+.freight-status {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6a4a20;
+  white-space: nowrap;
+}
+
+.freight-town {
+  grid-template-columns: 1fr auto;
+}
+
 .friend-list li {
   display: grid;
   grid-template-columns: 1fr auto 110px;

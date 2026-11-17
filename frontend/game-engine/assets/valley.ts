@@ -298,3 +298,91 @@ export function drawFriendlyGhost(frame: number): PixelCanvas {
   p.outline('#7a8ab0');
   return p;
 }
+
+const CRATE = '#b98a52';
+const CRATE_DARK = '#8a6236';
+const CRATE_LIGHT = '#d8ae74';
+const ROOF = '#7a3a1a';
+const ROOF_LIGHT = '#b05a30';
+const NOTICE = '#f4ecd6';
+
+/** A wooden crate, `w`x`h`, with planks and a cross brace. */
+function crate(p: PixelCanvas, x: number, y: number, w: number, h: number): void {
+  p.rect(x, y, w, h, CRATE);
+  p.rect(x, y, w, 1, CRATE_LIGHT);
+  p.rect(x, y + h - 1, w, 1, CRATE_DARK);
+  p.rect(x, y, 1, h, CRATE_DARK);
+  p.rect(x + w - 1, y, 1, h, CRATE_DARK);
+  for (let i = 1; i < Math.min(w, h) - 1; i++) {
+    p.set(x + i, y + i, CRATE_DARK);
+    p.set(x + w - 1 - i, y + i, CRATE_DARK);
+  }
+}
+
+/**
+ * The freight depot by the railway, 48x40: a little roofed board where the
+ * towns down the line pin their orders, on two posts, with crates stacked
+ * underneath. Base row 39.
+ */
+export function drawFreightShed(): PixelCanvas {
+  const p = new PixelCanvas(48, 40);
+  // Posts.
+  for (const x of [4, 42]) {
+    p.rect(x, 7, 3, 32, P.woodDark);
+    p.rect(x, 7, 1, 32, P.wood);
+  }
+  // Roof: a shallow gable with shingles.
+  for (let y = 0; y < 8; y++) {
+    const inset = Math.max(0, 3 - y);
+    p.rect(inset, y, 48 - inset * 2, 1, y < 2 ? ROOF_LIGHT : ROOF);
+  }
+  for (let x = 2; x < 46; x += 4) p.rect(x, 3 + (x % 8 === 2 ? 0 : 2), 1, 2, '#5a2a12');
+  p.rect(0, 7, 48, 1, '#4a2210');
+  // The order board: a framed cork panel with three notes pinned to it.
+  p.rect(7, 9, 34, 15, P.woodDark);
+  p.rect(8, 10, 32, 13, '#c89a5e');
+  for (let x = 9; x < 39; x += 3) p.set(x, 12 + (x % 2), '#b0844c');
+  for (const [nx, tint] of [[10, NOTICE], [20, '#e8f0f4'], [30, '#f8e8d0']] as const) {
+    p.rect(nx, 12, 8, 9, tint);
+    for (let ly = 14; ly < 20; ly += 2) p.rect(nx + 1, ly, 6, 1, '#9a8a70');
+    p.set(nx + 3, 11, '#c83a3a');
+    p.set(nx + 4, 11, '#c83a3a');
+  }
+  // Crates and a sack under the board.
+  crate(p, 8, 28, 12, 11);
+  crate(p, 10, 22 + 4, 8, 3);
+  crate(p, 27, 30, 10, 9);
+  p.rect(38, 31, 3, 8, '#d8c8a0');
+  p.rect(37, 33, 5, 6, '#cbb88e');
+  p.rect(38, 30, 3, 1, '#a89870');
+  p.outline(P.outline);
+  return p;
+}
+
+/** The depot's wooden loading platform, 48x9, laid along the track. */
+export function drawFreightDeck(): PixelCanvas {
+  const p = new PixelCanvas(48, 9);
+  p.rect(0, 0, 48, 7, P.wood);
+  p.rect(0, 0, 48, 1, P.woodLight);
+  for (let x = 0; x < 48; x += 8) p.rect(x, 0, 1, 7, P.woodDark);
+  for (let y = 2; y < 7; y += 2) for (let x = 3; x < 48; x += 8) p.set(x, y, P.woodDark);
+  // The edge facing the rails, and its shadow.
+  p.rect(0, 6, 48, 1, P.woodDark);
+  p.rect(0, 7, 48, 2, '#3a2a1a', 120);
+  return p;
+}
+
+/** Goods waiting on the platform for the train, 22x14: sacks and a strapped crate. */
+export function drawFreightGoods(): PixelCanvas {
+  const p = new PixelCanvas(22, 14);
+  crate(p, 9, 3, 12, 11);
+  p.rect(9, 7, 12, 1, IRON);
+  for (const [x, y] of [[1, 6], [4, 8]] as const) {
+    p.rect(x, y, 6, 6, '#d8c8a0');
+    p.rect(x + 1, y - 1, 4, 1, '#cbb88e');
+    p.rect(x + 2, y - 2, 2, 1, '#a89870');
+    p.rect(x, y + 5, 6, 1, '#b8a47c');
+  }
+  p.outline(P.outline);
+  return p;
+}

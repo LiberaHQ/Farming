@@ -105,6 +105,13 @@ import {
   METEOR_SHOWER,
   RAINBOW_HOURS,
   RAINBOW_LUCK_MINUTES,
+  CROPS,
+  TOWNS,
+  TOWN_IDS,
+  FREIGHT_PREMIUM,
+  freightPremium,
+  dayOfSeason,
+  seasonOfDay,
 } from '@farming/shared';
 import { itemTextureKey, objectTextureKey, repaintPlayer, TEXTURES } from '../assets/registerTextures';
 import { edgeTileInfo, GRASS_VARIANTS, SEASON_EDGES, TILE, TILE_MARGIN, TILE_SPACING, WATER_TILE_INDICES } from '../assets/tileIndex';
@@ -117,6 +124,7 @@ import { generateWorld } from '../maps/WorldGenerator';
 import { terrainAt, type WorldData } from '../maps/WorldData';
 import { barterWith, buyFrom, craft, offerFor, sellTo, stockFor, type TxResult } from '../state/economy';
 import { Quests } from '../state/Quests';
+import { Freight, type FreightEvent } from '../state/Freight';
 import { Social } from '../state/Social';
 import { PlayerState } from '../state/PlayerState';
 import { LocalSaveStore, SAVE_VERSION, type SaveData, type SaveStore } from '../state/save';
@@ -126,7 +134,7 @@ import { TrainSystem } from '../systems/TrainSystem';
 import { OrchardSystem } from '../systems/OrchardSystem';
 import { daily } from '../state/daily';
 import { EPITAPHS, GhostSystem } from '../systems/GhostSystem';
-import { drawDeadTree, drawGraveFence, drawGravePost, drawTombstone } from '../assets/valley';
+import { drawDeadTree, drawFreightDeck, drawFreightGoods, drawFreightShed, drawGraveFence, drawGravePost, drawTombstone } from '../assets/valley';
 import { AnimalSystem } from '../systems/AnimalSystem';
 import { FishingSystem } from '../systems/FishingSystem';
 import { BuildSystem, type Placed } from '../systems/BuildSystem';
@@ -458,6 +466,9 @@ export class WorldScene extends Phaser.Scene {
     this.npcs = new NpcSystem(this, this.world, this.homeDoors());
     this.social = new Social(() => this.onSocialChange());
     this.social.restore(save?.social);
+    this.freight.restore(save?.social?.freight);
+    this.freightClock = '';
+    this.freightGoods = null;
     skills.load(save?.social?.skills);
     daily.attach({
       giveGold: (n) => this.state.receiveGold(n),
@@ -787,6 +798,7 @@ export class WorldScene extends Phaser.Scene {
     }
     if (!frozen || this.coop) {
       this.train?.update(delta, { minute: this.time_.minute, day: this.time_.day, player: this.player, away: this.away });
+      this.freightTick();
       this.ghost?.update(this.time_.minute, { x: this.player.x, y: this.player.y }, this.away);
     }
     this.ambient.update(delta, {
@@ -936,6 +948,7 @@ export class WorldScene extends Phaser.Scene {
     const lots = this.lots();
     if (lots.museum) icons.push({ icon: '🏛', ...t(lots.museum.tx + 2.5, lots.museum.ty - 1) });
     if (lots.graveyard) icons.push({ icon: '🪦', ...t(lots.graveyard.tx + 3.5, lots.graveyard.ty - 2) });
+    if (lots.depot && this.train) icons.push({ icon: '🚉', ...t(lots.depot.tx + 1.5, lots.depot.ty) });
     for (const id of NPC_IDS) {
       const lot = lots.homes[id];
       if (lot) icons.push({ icon: '🏠', ...t(lot.tx + 1.5, lot.ty - 1) });
@@ -975,6 +988,7 @@ export class WorldScene extends Phaser.Scene {
         { label: 'Beach →', ...toMap((this.beachGate().tx + 0.5) * GAME_CONFIG.tileSize, this.beachGate().ty * GAME_CONFIG.tileSize) },
         ...(this.horse.exists && !this.horse.riding ? [{ label: `🐴 ${this.horse.name}`, ...toMap(this.horse.toSave()!.x, this.horse.toSave()!.y) }] : []),
         ...(this.lots().rail !== null ? [{ label: '🚂 Railway', ...toMap(14 * GAME_CONFIG.tileSize, this.lots().rail! * GAME_CONFIG.tileSize) }] : []),
+        ...(this.lots().depot && this.train ? [{ label: '🚉 Freight depot', ...toMap((this.lots().depot!.tx + 1.5) * GAME_CONFIG.tileSize, this.lots().depot!.ty * GAME_CONFIG.tileSize) }] : []),
         ...(this.lots().graveyard ? [{ label: '🪦 Graveyard', ...toMap((this.lots().graveyard!.tx + 3.5) * GAME_CONFIG.tileSize, (this.lots().graveyard!.ty - 4) * GAME_CONFIG.tileSize) }] : []),
         ...(this.lots().museum ? [{ label: '🏛 Museum', ...toMap((this.lots().museum!.tx + 2.5) * GAME_CONFIG.tileSize, (this.lots().museum!.ty - 1) * GAME_CONFIG.tileSize) }] : []),
         ...NPC_IDS.flatMap((id) => {
@@ -1188,7 +1202,7 @@ export class WorldScene extends Phaser.Scene {
       community: structuredClone(this.community),
       collection: this.collection.serialize(),
       interior: structuredClone(this.interior),
-      social: (this.rememberPetStay(), { ...this.social.serialize(), skills: skills.toSave(), horse: this.horse.toSave(), daily: daily.toSave() }),
+      social: (this.rememberPetStay(), { ...this.social.serialize(), skills: skills.toSave(), horse: this.horse.toSave(), daily: daily.toSave(), freight: this.freight.toSave() }),
       quests: this.quests.serialize(),
       floor: floorItems.snapshot(),
       ...(this.coop ? {} : { orchard: this.orchard.serialize() }),
@@ -1423,6 +1437,17 @@ export class WorldScene extends Phaser.Scene {
         if (this.panel !== 'shipping') return;
         if (!this.state.unship(index)) gameEvents.emit('toast', { text: 'Your backpack is full.' });
         this.emitShipping();
+      },
+      'freight:load': ({ id }) => {
+        if (this.panel !== 'freight') return;
+        const result = this.freight.load(id, this.state.inventory, { day: this.time_.day, minute: this.time_.minute });
+        gameEvents.emit('toast', { text: result.message });
+        sfx(!result.ok ? 'error' : result.complete ? 'quest' : 'place');
+        // A full order may already have its train (loaded right on the minute it leaves).
+        this.freightClock = '';
+        this.freightTick();
+        this.showFreightGoods();
+        this.emitFreight();
       },
       'board:deliver': ({ index }) => {
         if (this.panel !== 'board') return;
@@ -1661,7 +1686,7 @@ export class WorldScene extends Phaser.Scene {
     if (!this.coop || !this.state) return;
     const state: CoopPlayerState = {
       player: { ...this.state.serialize(), x: Math.round(this.player.x), y: Math.round(this.player.y), facing: this.player.facingDirection as Direction },
-      social: (this.rememberPetStay(), { ...this.social.serialize(), skills: skills.toSave(), horse: this.horse.toSave(), daily: daily.toSave() }),
+      social: (this.rememberPetStay(), { ...this.social.serialize(), skills: skills.toSave(), horse: this.horse.toSave(), daily: daily.toSave(), freight: this.freight.toSave() }),
       quests: this.quests.serialize(),
       interior: this.interior,
       collection: this.collection.serialize(),
@@ -1706,7 +1731,7 @@ export class WorldScene extends Phaser.Scene {
     const door = this.doorPosition();
     const me: CoopPlayerState = {
       player: { ...this.state.serialize(), x: door.x, y: door.y, facing: 'down' },
-      social: (this.rememberPetStay(), { ...this.social.serialize(), skills: skills.toSave(), horse: this.horse.toSave(), daily: daily.toSave() }),
+      social: (this.rememberPetStay(), { ...this.social.serialize(), skills: skills.toSave(), horse: this.horse.toSave(), daily: daily.toSave(), freight: this.freight.toSave() }),
       quests: this.quests.serialize(),
       interior: this.interior,
       collection: this.collection.serialize(),
@@ -2523,6 +2548,12 @@ export class WorldScene extends Phaser.Scene {
   private visiting: NpcId | null = null;
   private homeTalks = 0;
   private train: TrainSystem | null = null;
+  /** Train contracts at the freight depot (this player's own orders). */
+  private readonly freight = new Freight();
+  /** The game minute freight was last brought up to date ("day:minute"). */
+  private freightClock = '';
+  /** Goods waiting on the depot platform for the train. */
+  private freightGoods: Phaser.GameObjects.Image | null = null;
   private orchard!: OrchardSystem;
   /** Today's goals (also reachable here for debugging). */
   readonly dailyGoals = daily;
@@ -2537,6 +2568,8 @@ export class WorldScene extends Phaser.Scene {
     rail: number | null;
     /** The old graveyard: 7x5 tiles, `ty` its bottom (gate) row. */
     graveyard: { tx: number; ty: number; rect: Rect } | null;
+    /** The freight depot: 3 tiles wide on the row two above the rails (`ty`), its platform on the row between. */
+    depot: { tx: number; ty: number; rect: Rect } | null;
   } | null = null;
 
   /**
@@ -2604,10 +2637,14 @@ export class WorldScene extends Phaser.Scene {
     }
     // The railway: one straight row across the whole valley, clear of the path and every landmark.
     const rail = this.pickRailRow(taken, keepOut, fixtures);
+    // The depot sits right beside the rails, so it ignores the band kept clear of them for everything else.
+    const nearRails = [...keepOut];
     if (rail !== null) keepOut.push({ x0: 0, y0: rail - 2, x1: width, y1: rail + 2 });
     // The old graveyard: off on its own, a fair walk from the cottage.
     const graveyard = pick(7, 5, (x, y) => Math.abs(Math.hypot(x + 3.5 - home.tx, y - home.ty) - 24) + (y > home.ty ? 6 : 0) + pathBelow(x + 3, y));
-    return (this.lotCache = { homes, museum, rail, graveyard });
+    // The freight depot: picked last, so every older landmark stays exactly where it was.
+    const depot = rail === null ? null : this.pickDepot(rail, taken, nearRails, fixtures);
+    return (this.lotCache = { homes, museum, rail, graveyard, depot });
   }
 
   /**
@@ -2635,6 +2672,29 @@ export class WorldScene extends Phaser.Scene {
     return best?.row ?? null;
   }
 
+  /**
+   * Where the freight depot stands: three tiles of open grass on the row two
+   * above the rails (the shed) and the row between (its platform), as close
+   * to the cottage as possible. Null if nowhere fits.
+   */
+  private pickDepot(rail: number, taken: Rect[], keepOut: Rect[], fixtures: Set<string>): { tx: number; ty: number; rect: Rect } | null {
+    const { width, home } = this.world;
+    const inside = (x: number, y: number) => [...taken, ...keepOut].some((r) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1);
+    const open = (x: number, y: number) =>
+      terrainAt(this.world, x, y) === Terrain.Grass && !fixtures.has(`${x},${y}`) && !inside(x, y) && !this.build.at(x, y) && !this.farming.isTilled(x, y) && !this.orchard?.at(x, y);
+    const ty = rail - 2;
+    if (ty < 2) return null;
+    let best: { tx: number; score: number } | null = null;
+    for (let x = 6; x <= width - 9; x++) {
+      let ok = true;
+      for (let dx = 0; dx < 3 && ok; dx++) ok = open(x + dx, ty) && open(x + dx, ty + 1);
+      if (!ok) continue;
+      const score = Math.hypot(x + 1.5 - (home.tx + 1.5), ty - home.ty);
+      if (!best || score < best.score) best = { tx: x, score };
+    }
+    return best ? { tx: best.tx, ty, rect: { x0: best.tx, y0: ty, x1: best.tx + 2, y1: ty + 1 } } : null;
+  }
+
   /** Front doors (where villagers come and go). */
   private homeDoors(): Partial<Record<NpcId, { x: number; y: number }>> {
     const size = GAME_CONFIG.tileSize;
@@ -2650,7 +2710,12 @@ export class WorldScene extends Phaser.Scene {
   private decorateLots(obstacles: Phaser.Physics.Arcade.StaticGroup): void {
     const size = GAME_CONFIG.tileSize;
     const lots = this.lots();
-    const all: Rect[] = [...Object.values(lots.homes).map((l) => l!.rect), ...(lots.museum ? [lots.museum.rect] : []), ...(lots.graveyard ? [lots.graveyard.rect] : [])];
+    const all: Rect[] = [
+      ...Object.values(lots.homes).map((l) => l!.rect),
+      ...(lots.museum ? [lots.museum.rect] : []),
+      ...(lots.graveyard ? [lots.graveyard.rect] : []),
+      ...(lots.depot ? [lots.depot.rect] : []),
+    ];
     if (lots.rail !== null) all.push({ x0: 0, y0: lots.rail - 1, x1: this.world.width - 1, y1: lots.rail });
     for (const r of all) this.resources.clearArea(r);
     if (lots.rail !== null) this.resources.clearArea({ x0: 0, y0: lots.rail + 1, x1: this.world.width - 1, y1: lots.rail + 1 });
@@ -2694,6 +2759,17 @@ export class WorldScene extends Phaser.Scene {
       });
     }
     if (lots.graveyard) this.decorateGraveyard(lots.graveyard, tex, solid, label);
+    if (lots.depot && this.train) {
+      const d = lots.depot;
+      const x = (d.tx + 1.5) * size;
+      const base = (d.ty + 1) * size - 1;
+      this.add.image(x, (d.ty + 1) * size + 3, tex('freight-deck', drawFreightDeck)).setOrigin(0.5, 0).setDepth(DEPTH.soil + 0.6);
+      this.add.image(x, base, tex('freight-shed', drawFreightShed)).setOrigin(0.5, 1).setDepth(DEPTH.ySortBase + base);
+      label(x, base - 40, 'FREIGHT', DEPTH.ySortBase + base + 1, 6);
+      solid(d.tx, d.ty, 3, 1);
+      tex('freight-goods', drawFreightGoods);
+      this.propLights.push({ x, y: base - 30, radius: 34 });
+    }
   }
 
   /**
@@ -2771,7 +2847,7 @@ export class WorldScene extends Phaser.Scene {
     const { width, height, mine } = this.world;
     const lots = this.lots();
     const inLot = (x: number, y: number) =>
-      [...Object.values(lots.homes).map((l) => l!.rect), lots.museum?.rect, lots.graveyard?.rect].some((r) => r && x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) ||
+      [...Object.values(lots.homes).map((l) => l!.rect), lots.museum?.rect, lots.graveyard?.rect, lots.depot?.rect].some((r) => r && x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) ||
       (lots.rail !== null && Math.abs(y - lots.rail) <= 1);
     const open = (x: number, y: number) =>
       x > 1 && y > 1 && x < width - 2 && y < height - 2 &&
@@ -2851,6 +2927,11 @@ export class WorldScene extends Phaser.Scene {
         if (grave.ty === ty) return { verb: 'Read the headstone', info: true, run: () => this.sayLines([{ speaker: 'Headstone', text: text + after }]) };
       }
       if (grave.ty === ty) return { verb: 'Read the headstone', info: true, run: () => this.sayLines([{ speaker: 'Headstone', text }]) };
+    }
+    const depot = lots.depot;
+    if (depot && this.train && ty === depot.ty && tx >= depot.tx && tx <= depot.tx + 2) {
+      const open = this.freight.openCount;
+      return { verb: open > 0 ? `Freight board (${open} order${open > 1 ? 's' : ''})` : 'Freight board', run: () => this.openFreight() };
     }
     const m = lots.museum;
     if (m && tx >= m.tx && tx < m.tx + 5 && ty >= m.ty - 1 && ty <= m.ty) {
@@ -3228,6 +3309,7 @@ export class WorldScene extends Phaser.Scene {
       ['meteors', 'Watch the meteor shower', 'Summer, day 7, after 9pm. Meteorites land on the farm.', m('meteors')],
       ['icefish', 'Catch a fish through the ice', 'In winter, fish the frozen ponds for icefish.', found.has('icefish') || found.has('glacierfish')],
       ['train', 'Watch the train go by', 'It runs along its own track south of the path a few times a day. Things fall off sometimes!', m('train')],
+      ['freight', 'Deliver a train contract', 'Towns down the line post orders at the freight depot by the railway (🚉 on the map).', m('freight')],
       ['daily', 'Finish all three daily goals', 'Your goals for today are under your gold (top right). Finishing all three pays a bonus.', daily.best >= 1],
       ['streak', 'Keep a 3-day goal streak', 'Finish every daily goal three days in a row: you get Lucky for the day.', daily.best >= 3],
       ['orchard', 'Plant a fruit tree', 'Mira sells apple, cherry and peach saplings. Plant one on open grass with room around it.', this.orchard.all.length > 0 || m('orchard')],
@@ -3837,6 +3919,137 @@ export class WorldScene extends Phaser.Scene {
       barter: def.shop?.barter ?? [],
       loves: [...def.gifts.loved],
       likes: [...def.gifts.liked],
+    });
+  }
+
+  // ---------- Train contracts ----------
+
+  private openFreight(): void {
+    this.freightTick();
+    this.emitFreight();
+    this.setPanel('freight');
+  }
+
+  /** Whether the player could get hold of an item: held it before, or can buy its seeds now. */
+  private canGetForFreight(itemId: ItemId): boolean {
+    if (this.collection.has(itemId)) return true;
+    const crop = Object.values(CROPS).find((c) => c.harvestItem === itemId);
+    if (!crop) return false;
+    const seed = ITEMS[crop.seedItem];
+    return this.collection.has(crop.seedItem) || (seed.buyPrice !== undefined && (seed.unlockAtEarnings ?? 0) <= this.state.lifetimeEarnings);
+  }
+
+  /** Moves the freight orders along to the current game minute, and announces what happened. */
+  private freightTick(): void {
+    if (!this.train || !this.lots().depot) return;
+    const clock = `${this.time_.day}:${this.time_.minute}`;
+    if (clock === this.freightClock) return;
+    this.freightClock = clock;
+    const train = this.train;
+    const events = this.freight.update(
+      { day: this.time_.day, minute: this.time_.minute },
+      {
+        seed: this.seed,
+        player: this.coop?.session.selfId ?? 'solo',
+        lifetimeEarnings: this.state.lifetimeEarnings,
+        canGet: (itemId) => this.canGetForFreight(itemId),
+        departures: (day) => train.departures(day),
+      },
+    );
+    for (const e of events) this.announceFreight(e);
+    this.showFreightGoods();
+    if (events.length > 0 && this.panel === 'freight') this.emitFreight();
+  }
+
+  private announceFreight(e: FreightEvent): void {
+    const toast = (text: string) => gameEvents.emit('toast', { text });
+    const day = this.time_.day;
+    if (e.kind === 'intro') {
+      this.social.send(
+        day,
+        'Valley Rail Freight',
+        'The freight depot is open',
+        'Good news from the railway! Towns down the line will post orders on the board at our freight depot, beside the tracks (🚉 on your map). Load the goods there over as many trips as you like before the date on the order. The next train takes a full order away, and the payment comes back on the first train of a later day — well above shipping prices. If an order misses its date, whatever you loaded still goes out and is paid at shipping prices. Safe travels!',
+      );
+      return;
+    }
+    if (e.kind === 'posted') {
+      toast(`🚉 ${e.count === 1 ? 'A new freight order is' : `${e.count} new freight orders are`} up at the depot by the railway.`);
+      return;
+    }
+    const c = e.contract;
+    const town = TOWNS[c.town];
+    const name = ITEMS[c.itemId].name;
+    const n = c.partial ? c.loaded : c.quantity;
+    if (e.kind === 'expired') {
+      toast(`${town.emoji} ${town.name}'s order for ${c.quantity} ${name} passed its date.`);
+    } else if (e.kind === 'picked') {
+      toast(`🚂 The ${formatClock(e.minute)} train took ${n} ${name} to ${town.name}. Payment comes back on a later train.`);
+    } else {
+      this.state.earn(e.gold);
+      sfx('coin');
+      toast(`💰 ${town.name} paid ${e.gold.toLocaleString()}g for ${n} ${name} (on the ${formatClock(e.minute)} train).`);
+      const body = c.partial
+        ? `The ${n} ${name} you loaded went out after our date, so we've paid the shipping price for them: ${e.gold.toLocaleString()}g. We'll post again soon. — ${town.sender}`
+        : `All ${n} ${name} arrived safe and sound. Here is your payment of ${e.gold.toLocaleString()}g, with our thanks. We'll keep sending orders your way. — ${town.sender}`;
+      this.social.send(day, town.sender, `Payment for ${n} ${name}`, body);
+      if (!c.partial && this.social.mark('freight')) toast('📖 Guide: you delivered your first train contract!');
+    }
+  }
+
+  /** Sacks and a crate on the platform while goods wait there for the train. */
+  private showFreightGoods(): void {
+    const d = this.lots().depot;
+    if (!d || !this.textures.exists('freight-goods')) return;
+    const waiting = this.freight.contracts.some((c) => (c.status === 'open' && c.loaded > 0) || c.status === 'ready');
+    if (waiting && !this.freightGoods) {
+      const size = GAME_CONFIG.tileSize;
+      const y = (d.ty + 1) * size + 10;
+      this.freightGoods = this.add.image((d.tx + 0.6) * size, y, 'freight-goods').setOrigin(0.5, 1).setDepth(DEPTH.ySortBase + y);
+    } else if (!waiting && this.freightGoods) {
+      this.freightGoods.destroy();
+      this.freightGoods = null;
+    }
+  }
+
+  private emitFreight(): void {
+    const day = this.time_.day;
+    const minute = this.time_.minute;
+    const trains = (this.train?.departures(day) ?? []).filter((m) => m >= minute);
+    const next = trains[0];
+    const label = (d: number) => {
+      const s = seasonOfDay(d);
+      return `${s[0].toUpperCase()}${s.slice(1)} ${dayOfSeason(d)}`;
+    };
+    const inv = this.state.inventory;
+    gameEvents.emit('freight:state', {
+      trains: trains.map((m) => formatClock(m)),
+      towns: TOWN_IDS.map((id) => {
+        const delivered = this.freight.delivered(id);
+        return { name: TOWNS[id].name, emoji: TOWNS[id].emoji, blurb: TOWNS[id].blurb, delivered, bonus: Math.round((freightPremium(delivered) - FREIGHT_PREMIUM) * 100) };
+      }),
+      orders: this.freight.contracts.map((c) => {
+        let note = '';
+        if (c.status === 'ready') note = next !== undefined ? `Loaded — goes out on the ${formatClock(next)} train.` : 'Loaded — goes out on the first train tomorrow.';
+        else if (c.status === 'shipped') note = c.shippedDay === day ? 'On its way — payment comes back on the first train tomorrow.' : 'On its way — payment comes back on the next train.';
+        return {
+          id: c.id,
+          townName: TOWNS[c.town].name,
+          emoji: TOWNS[c.town].emoji,
+          itemId: c.itemId,
+          itemName: ITEMS[c.itemId].name,
+          quantity: c.quantity,
+          loaded: c.loaded,
+          have: inv.count(c.itemId),
+          due: label(c.due),
+          daysLeft: c.due - day,
+          reward: c.reward,
+          status: c.status,
+          ...(c.pay !== undefined ? { pay: c.pay } : {}),
+          ...(c.partial ? { partial: true } : {}),
+          note,
+        };
+      }),
     });
   }
 

@@ -137,3 +137,4 @@ export * from './skills';
 export * from './events';
 export * from './orchard';
 export * from './daily';
+export * from './freight';

@@ -6,6 +6,7 @@ import type { LivestockSave } from '../game-config/livestock';
 import type { CommunityProgress } from '../game-config/community';
 import type { FruitTreeKind } from '../game-config/orchard';
 import type { DailySave } from '../game-config/daily';
+import type { FreightSave } from '../game-config/freight';
 
 import type { Letter } from '../game-config/village';
 import type { InteriorSave } from '../game-config/interior';
@@ -158,6 +159,8 @@ export interface SocialSave {
   daily?: DailySave;
   /** Your horse: its name and where you left it (pixels). */
   horse?: { name: string; x: number; y: number };
+  /** Train contracts at the freight depot: open orders, orders on their way, and deliveries per town. */
+  freight?: FreightSave;
 }
 
 export interface IslandSave {

@@ -105,8 +105,11 @@ export class TrainSystem {
     }
   }
 
-  /** Today's departures (game minutes), in order. */
-  private schedule(day: number): number[] {
+  /**
+   * A day's departures (game minutes), in order. The same for every player of
+   * a world, and fixed whether or not anyone is there to see the train.
+   */
+  departures(day: number): number[] {
     const rng = createRng(`${this.seed}:train:${day}`);
     const slots = [...SLOTS];
     const picked: number[] = [];
@@ -117,7 +120,7 @@ export class TrainSystem {
 
   /** Minutes until the next train today (null if none left). Shown nowhere yet; handy for tests. */
   next(day: number, minute: number): number | null {
-    const t = this.schedule(day).find((m) => m >= minute);
+    const t = this.departures(day).find((m) => m >= minute);
     return t === undefined ? null : t - minute;
   }
 
@@ -176,7 +179,7 @@ export class TrainSystem {
         this.done.clear();
         this.doneDay = ctx.day;
       }
-      const times = this.schedule(ctx.day);
+      const times = this.departures(ctx.day);
       for (let i = 0; i < times.length && !this.run; i++) {
         const key = `${ctx.day}:${i}`;
         if (this.done.has(key) || ctx.minute < times[i]) continue;
