@@ -3,6 +3,22 @@
 A browser-based, top-down 2D sandbox adventure: farming, exploration, gathering, crafting and building.
 **Current state: Phase 5 + two big content updates** — co-op multiplayer over Socket.IO (shared worlds the server is in charge of, synced movement, chat, trading, co-op farming, host migration), accounts, profiles and cloud saves in PostgreSQL, and a game with days and seasons, weather, building, a village market of five merchants with schedules, festivals, heart events and mail, a 30-floor mine with combat, 11 crops, a greenhouse and artisan machines, a barn with cows and sheep, a beach, a cottage you furnish, community projects, a collection with achievements, settings for keys, UI size, day length, gamepads and touch screens — and now a story, villager requests and first-day tips, a shipping bin with a morning report, food buffs, a fishing minigame and crab pots, mine bosses and treasure, rings and armour, an old forest with a hermit, pets, romance and marriage, silos, wells, sheds, ducks and rabbits, decorations and automation, a cottage that comes furnished (with displays for your best fish, food and gems), public co-op games, friends, cabins, a shared wallet, and emotes.
 
+## The ghost night market
+
+- **Once Elsie is at rest** (`shared/src/game-config/nightMarket.ts`, `systems/NightMarketSystem.ts`,
+  `components/panels/NightMarketPanel.tsx`): the next day a note in faded ink arrives, and from then on three
+  spirits keep a market **inside the graveyard from 10pm until the day ends**. They glow, carry their own
+  lanterns (lit by the night lighting), and — being ghosts — don't block your way. Press E facing one.
+- 🕯 **Old Wick, the Lamplighter**, buys strange things for more than any stall pays: ectoplasm, bat wings,
+  slime, coal, charcoal, fossils, rainbow shells, meteorites, golden spikes and glacierfish.
+- 🦋 **Madame Moth** only swaps curiosities for curiosities: Wisp Tea (2 ectoplasm), a Moon Bloom (4 bat wings
+  + 2 ectoplasm) or the Phantom Ring (a meteorite + 6 ectoplasm).
+- ⛵ **The Ferryman** takes a coin, as ferrymen do: three rare goods a night, one of each, different every
+  night (the same for everyone in a world).
+- **Only from the market:** ☕ **Wisp Tea** (+60 energy, Swift for 4 hours), 🌙 **Moon Bloom** (every villager
+  loves one) and 💍 **Phantom Ring** (+2 damage, 15% less damage taken).
+- Saved per player in `SocialSave.nightMarket`. New Guide step: trade at the ghost night market.
+
 ## Tidal farming on the beach
 
 - **Tide beds** (`shared/src/game-config/tidal.ts`, `BeachScene` bed actions, art `drawTideBed` in `assets/beach.ts`):

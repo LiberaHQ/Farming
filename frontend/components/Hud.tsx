@@ -19,6 +19,7 @@ import { InventoryPanel } from './panels/InventoryPanel';
 import { MapPanel } from './panels/MapPanel';
 import { BoardPanel } from './panels/BoardPanel';
 import { FreightPanel } from './panels/FreightPanel';
+import { NightMarketPanel } from './panels/NightMarketPanel';
 import { TradePanel } from './panels/TradePanel';
 import { PlayerTradePanel } from './panels/PlayerTradePanel';
 import { CoopHud } from './CoopHud';
@@ -169,6 +170,7 @@ export function Hud() {
       )}
       {panel === 'board' && <BoardPanel />}
       {panel === 'freight' && <FreightPanel />}
+      {panel === 'market' && <NightMarketPanel />}
       {panel === 'mine' && <ElevatorPanel />}
       {panel === 'mail' && <MailPanel />}
       {inventory && panel === 'trade' && <PlayerTradePanel inventory={inventory} gold={stats?.gold ?? 0} />}

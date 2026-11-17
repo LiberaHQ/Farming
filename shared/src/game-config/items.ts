@@ -191,6 +191,9 @@ export const ITEM_IDS = [
   'oyster_spat',
   'seaweed_spores',
   'oyster',
+  'wisp_tea',
+  'moon_bloom',
+  'phantom_ring',
 ] as const;
 
 export type ItemId = (typeof ITEM_IDS)[number];
@@ -557,6 +560,33 @@ export const ITEMS: Record<ItemId, ItemDef> = {
     category: 'seed',
     maxStack: 99,
     sellPrice: 5,
+  },
+  wisp_tea: {
+    id: 'wisp_tea',
+    name: 'Wisp Tea',
+    description: 'Brewed from something that glows. From the ghost night market. Restores energy and makes you Swift.',
+    category: 'food',
+    maxStack: 99,
+    sellPrice: 120,
+    energy: 60,
+    buff: { kind: 'speed', minutes: 240 },
+  },
+  moon_bloom: {
+    id: 'moon_bloom',
+    name: 'Moon Bloom',
+    description: 'A pale flower that only opens in moonlight. Only the spirits of the night market have them — and every villager loves one.',
+    category: 'resource',
+    maxStack: 99,
+    sellPrice: 200,
+  },
+  phantom_ring: {
+    id: 'phantom_ring',
+    name: 'Phantom Ring',
+    description: 'Cold to the touch. From the ghost night market. Wear it: +2 damage with any weapon, and take 15% less damage.',
+    category: 'equipment',
+    maxStack: 1,
+    sellPrice: 1500,
+    equip: { slot: 'ring', attack: 2, defense: 0.15 },
   },
   oyster: { id: 'oyster', name: 'Oyster', description: 'Grown in your own tide bed. Briny and fresh — and once in a while there is a pearl inside.', category: 'resource', maxStack: 99, sellPrice: 80 },
   coal: { id: 'coal', name: 'Coal', description: 'A lump of coal that bounced off the train. Bram loves it for his forge.', category: 'resource', maxStack: 99, sellPrice: 25 },

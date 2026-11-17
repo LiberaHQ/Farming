@@ -917,6 +917,26 @@ const DRAW = {
     p.rect(6, 12, 4, 2, '#d8a0c8');
     p.set(9, 8, '#ffffff');
   },
+  wisp_tea: (p: PixelCanvas) => {
+    // A teacup with pale, glowing steam curling up.
+    p.rect(3, 8, 9, 5, '#e8eef4');
+    p.rect(4, 13, 7, 1, '#c8d0d8');
+    p.rect(12, 9, 2, 3, '#e8eef4');
+    p.rect(4, 8, 7, 1, '#9ad8c8');
+    for (const [x, y] of [[5, 6], [6, 5], [6, 4], [8, 6], [9, 5], [9, 3], [10, 2]]) p.set(x, y, '#c8f4ec');
+    p.set(7, 4, '#ffffff');
+  },
+  moon_bloom: (p: PixelCanvas) => {
+    // A pale, five-petalled flower with a soft blue heart on a slim stem.
+    p.rect(7, 9, 1, 6, '#3f8a4a');
+    p.rect(8, 11, 2, 1, '#5aac46');
+    for (const [x, y] of [[7, 2], [4, 4], [10, 4], [5, 8], [9, 8]]) p.rect(x - 1, y, 3, 3, '#eef0ff');
+    p.rect(6, 5, 3, 3, '#a8c8ff');
+    p.set(7, 6, '#ffffff');
+    p.set(3, 3, '#d8e4ff');
+    p.set(12, 9, '#d8e4ff');
+  },
+  phantom_ring: (p: PixelCanvas) => ringIcon(p, '#9ad8e8'),
   oyster: (p: PixelCanvas) => {
     // A rough grey shell, propped open on its pale pearly inside.
     for (let y = 4; y <= 13; y++) for (let x = 2; x <= 14; x++) if (((x - 8) / 6) ** 2 + ((y - 9) / 4.6) ** 2 <= 1) p.set(x, y, (x * 3 + y) % 5 === 0 ? '#6e6a62' : '#8a857a');

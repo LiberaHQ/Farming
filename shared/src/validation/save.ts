@@ -19,6 +19,7 @@ import { SAVE_VERSION, type CarnivalSave, type IslandSave, type QuestSave, type 
 import { CARNIVAL_GAME_IDS } from '../game-config/carnival';
 import { FRUIT_TREE_MAX_FRUIT, isFruitTreeKind, isQuality } from '../game-config/orchard';
 import { DAILY_KINDS, type DailyKind, type DailySave } from '../game-config/daily';
+import { FERRY_OFFERS_PER_NIGHT, type NightMarketSave } from '../game-config/nightMarket';
 import { TIDE_BEDS, TIDE_CROPS, isTideCropId, type TidalSave } from '../game-config/tidal';
 import { FREIGHT_MAX_CONTRACTS, FREIGHT_STATUSES, TOWN_IDS, freightUnitPrice, isTownId, type FreightContract, type FreightSave, type FreightStatus } from '../game-config/freight';
 import type { WorldObjectKind, WorldObjectSpec } from '../types/world';
@@ -200,6 +201,15 @@ function tidal(v: Record<string, unknown>): TidalSave {
   };
 }
 
+function nightMarket(v: Record<string, unknown>): NightMarketSave {
+  const bought = Array.isArray(v.bought) ? v.bought.slice(0, FERRY_OFFERS_PER_NIGHT).map((n) => int(n, 0, FERRY_OFFERS_PER_NIGHT - 1, 'social.nightMarket.bought')) : [];
+  return {
+    ...(v.intro === true ? { intro: true } : {}),
+    day: int(v.day ?? 0, 0, 200_000, 'social.nightMarket.day'),
+    bought: [...new Set(bought)],
+  };
+}
+
 function social(v: unknown): SocialSave | undefined {
   if (v === undefined || v === null) return undefined;
   if (!isObj(v)) return fail('social must be an object');
@@ -243,6 +253,7 @@ function social(v: unknown): SocialSave | undefined {
     ...(isObj(v.daily) ? { daily: daily(v.daily) } : {}),
     ...(isObj(v.freight) ? { freight: freight(v.freight) } : {}),
     ...(isObj(v.tidal) ? { tidal: tidal(v.tidal) } : {}),
+    ...(isObj(v.nightMarket) ? { nightMarket: nightMarket(v.nightMarket) } : {}),
     ...(isObj(v.horse) && typeof v.horse.name === 'string'
       ? { horse: { name: v.horse.name.trim().slice(0, 16) || 'Clover', x: int(Math.round(Number(v.horse.x) || 0), 0, 100_000, 'horse.x'), y: int(Math.round(Number(v.horse.y) || 0), 0, 100_000, 'horse.y') } }
       : {}),

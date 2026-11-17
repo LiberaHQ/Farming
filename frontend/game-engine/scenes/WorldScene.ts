@@ -112,6 +112,14 @@ import {
   freightPremium,
   dayOfSeason,
   seasonOfDay,
+  MOTH_TRADES,
+  NIGHT_MARKET_HOURS,
+  SPIRITS,
+  SPIRIT_IDS,
+  WICK_BUYS,
+  ferryOffers,
+  nightMarketOpen,
+  type SpiritId,
 } from '@farming/shared';
 import { itemTextureKey, objectTextureKey, repaintPlayer, TEXTURES } from '../assets/registerTextures';
 import { edgeTileInfo, GRASS_VARIANTS, SEASON_EDGES, TILE, TILE_MARGIN, TILE_SPACING, WATER_TILE_INDICES } from '../assets/tileIndex';
@@ -131,6 +139,7 @@ import { LocalSaveStore, SAVE_VERSION, type SaveData, type SaveStore } from '../
 import type { AppearanceChoice } from '@farming/shared';
 import { AmbientLifeSystem } from '../systems/AmbientLifeSystem';
 import { TrainSystem } from '../systems/TrainSystem';
+import { NightMarketSystem } from '../systems/NightMarketSystem';
 import { OrchardSystem } from '../systems/OrchardSystem';
 import { daily } from '../state/daily';
 import { EPITAPHS, GhostSystem } from '../systems/GhostSystem';
@@ -800,6 +809,8 @@ export class WorldScene extends Phaser.Scene {
       this.train?.update(delta, { minute: this.time_.minute, day: this.time_.day, player: this.player, away: this.away });
       this.freightTick();
       this.ghost?.update(this.time_.minute, { x: this.player.x, y: this.player.y }, this.away);
+      this.nightMarket?.update(this.marketOpenNow(), this.away, { x: this.player.x, y: this.player.y });
+      this.nightMarketNote();
     }
     this.ambient.update(delta, {
       player: { x: this.player.x, y: this.player.y },
@@ -827,6 +838,7 @@ export class WorldScene extends Phaser.Scene {
     lights.push(...this.windowLights());
     const ghostLight = this.ghost?.light();
     if (ghostLight) lights.push(ghostLight);
+    if (this.nightMarket) lights.push(...this.nightMarket.lights());
     if (LightingSystem.darkness(this.time_.minute) > 0.3) lights.push({ x: this.player.x, y: this.player.y - 10, radius: 40 });
     this.lighting.update(this.time_.minute, this.weather.current, lights);
 
@@ -1438,6 +1450,9 @@ export class WorldScene extends Phaser.Scene {
         if (!this.state.unship(index)) gameEvents.emit('toast', { text: 'Your backpack is full.' });
         this.emitShipping();
       },
+      'market:sell': ({ itemId, all }) => this.marketSell(itemId, all),
+      'market:barter': ({ index }) => this.marketBarter(index),
+      'market:buy': ({ index }) => this.marketBuy(index),
       'freight:load': ({ id }) => {
         if (this.panel !== 'freight') return;
         const result = this.freight.load(id, this.state.inventory, { day: this.time_.day, minute: this.time_.minute });
@@ -2558,6 +2573,10 @@ export class WorldScene extends Phaser.Scene {
   /** Today's goals (also reachable here for debugging). */
   readonly dailyGoals = daily;
   private ghost: GhostSystem | null = null;
+  /** The spirits of the night market (in the graveyard). */
+  private nightMarket: NightMarketSystem | null = null;
+  /** Whose stall the market panel is showing. */
+  private marketSpirit: SpiritId = 'wick';
   /** Headstones in the graveyard: tile and epitaph index. */
   private graves: Array<{ tx: number; ty: number; epitaph: number }> = [];
 
@@ -2836,6 +2855,7 @@ export class WorldScene extends Phaser.Scene {
       mark: (id) => this.social.mark(id),
       drop: (itemId, quantity) => this.drops.spawn(itemId, quantity, this.player.x, this.player.y - 4),
     });
+    this.nightMarket = new NightMarketSystem(this, { x0, y0 });
   }
 
   /**
@@ -2918,6 +2938,11 @@ export class WorldScene extends Phaser.Scene {
     const toast = (text: string) => gameEvents.emit('toast', { text });
     const belonging = this.ghost?.belongingAt(tx, ty);
     if (belonging) return { verb: 'Pick up something glinting', run: () => this.ghost?.pickUp(tx, ty) };
+    const spirit = this.nightMarket?.spiritAt(tx, ty);
+    if (spirit && this.marketOpenNow()) {
+      const def = SPIRITS[spirit];
+      return { verb: `${def.emoji} ${def.name} · night market`, run: () => this.openMarket(spirit) };
+    }
     const grave = this.graves.find((g) => g.tx === tx && (g.ty === ty || g.ty + 1 === ty));
     if (grave) {
       if (grave.epitaph === 0 && this.ghost?.present(this.time_.minute)) return { verb: 'Talk to the ghost', run: () => this.ghost?.talk() };
@@ -3315,6 +3340,7 @@ export class WorldScene extends Phaser.Scene {
       ['orchard', 'Plant a fruit tree', 'Mira sells apple, cherry and peach saplings. Plant one on open grass with room around it.', this.orchard.all.length > 0 || m('orchard')],
       ['gold', 'Harvest a gold-quality crop', 'Higher farming level and fertilizer make silver and gold harvests more likely.', m('gold_crop')],
       ['ghost', "Help the graveyard's ghost rest", 'Visit the graveyard (🪦 on the map) after 10pm and find her three lost belongings.', m('ghost_rest')],
+      ['market', 'Trade at the ghost night market', 'Once Elsie is at rest, spirits trade in the graveyard from 10pm until the day ends.', m('night_market')],
     ];
     return steps.map(([id, text, hint, done]) => ({ id, text, hint, done }));
   }
@@ -3923,6 +3949,138 @@ export class WorldScene extends Phaser.Scene {
       barter: def.shop?.barter ?? [],
       loves: [...def.gifts.loved],
       likes: [...def.gifts.liked],
+    });
+  }
+
+  // ---------- The ghost night market ----------
+
+  /** Open tonight: Elsie is at rest and her note about the market has arrived (so it starts the night after she moves on). */
+  private marketOpenNow(): boolean {
+    return this.social.nightMarket.intro === true && nightMarketOpen(this.social.ghost.stage, this.time_.minute);
+  }
+
+  private openMarket(spirit: SpiritId): void {
+    this.marketSpirit = spirit;
+    sfx('ghost', { volume: 0.4 });
+    this.emitMarket();
+    this.setPanel('market');
+  }
+
+  /** The morning after Elsie moves on (or the first daytime in an older save), a note about the market. */
+  private nightMarketNote(): void {
+    const market = this.social.nightMarket;
+    if (market.intro || this.social.ghost.stage < 3 || this.time_.minute >= NIGHT_MARKET_HOURS.from) return;
+    market.intro = true;
+    this.social.send(
+      this.time_.day,
+      'A note in faded ink',
+      'The night market',
+      "Dear friend — I'm resting now, truly. But some old friends of mine still wander, and they'd like to meet you. From ten o'clock each night they keep a little market in the graveyard: Old Wick buys the strange things the living throw away, Madame Moth trades curiosities for curiosities, and the Ferryman always has something rare (for a coin — he's old-fashioned). Do say hello. — E.",
+    );
+  }
+
+  /** The market can only be used while it's open, with its panel up. */
+  private marketReady(): boolean {
+    if (this.panel !== 'market') return false;
+    if (this.marketOpenNow()) return true;
+    gameEvents.emit('toast', { text: 'The spirits have faded away with the night.' });
+    this.setPanel(null);
+    return false;
+  }
+
+  /** Gives an item, dropping what doesn't fit at the player's feet. */
+  private giveOrDrop(itemId: ItemId, quantity: number): void {
+    const left = this.state.inventory.add(itemId, quantity);
+    if (quantity - left > 0) gameEvents.emit('item:collected', { itemId, quantity: quantity - left });
+    if (left > 0) {
+      this.drops.spawn(itemId, left, this.player.x, this.player.y - 4);
+      gameEvents.emit('toast', { text: 'Your backpack is full — it landed at your feet.' });
+    }
+  }
+
+  private marketTraded(): void {
+    if (this.social.mark('night_market')) gameEvents.emit('toast', { text: '📖 Guide: you traded at the ghost night market!' });
+    this.emitMarket();
+  }
+
+  private marketSell(itemId: ItemId, all: boolean): void {
+    if (!this.marketReady()) return;
+    const entry = WICK_BUYS.find((b) => b.itemId === itemId);
+    const inv = this.state.inventory;
+    const have = entry ? inv.count(itemId) : 0;
+    const n = all ? have : Math.min(1, have);
+    if (!entry || n <= 0 || !inv.remove(itemId, n)) {
+      gameEvents.emit('toast', { text: "You don't have that with you." });
+      sfx('error');
+      return;
+    }
+    const gold = entry.price * n;
+    this.state.earn(gold);
+    sfx('coin');
+    gameEvents.emit('toast', { text: `🕯 Old Wick takes ${n} ${ITEMS[itemId].name} and presses ${gold.toLocaleString()}g into your hand. It's cold.` });
+    this.marketTraded();
+  }
+
+  private marketBarter(index: number): void {
+    if (!this.marketReady()) return;
+    const trade = MOTH_TRADES[index];
+    const inv = this.state.inventory;
+    if (!trade || trade.give.some((g) => inv.count(g.itemId) < g.quantity)) {
+      gameEvents.emit('toast', { text: '🦋 "Not quite enough curiosities, darling."' });
+      sfx('error');
+      return;
+    }
+    for (const g of trade.give) inv.remove(g.itemId, g.quantity);
+    this.giveOrDrop(trade.get.itemId, trade.get.quantity);
+    sfx('sparkle');
+    gameEvents.emit('toast', { text: `🦋 Madame Moth hands you ${trade.get.quantity > 1 ? `${trade.get.quantity} ` : 'a '}${ITEMS[trade.get.itemId].name}. "Charming doing business."` });
+    this.marketTraded();
+  }
+
+  private marketBuy(index: number): void {
+    if (!this.marketReady()) return;
+    const day = this.time_.day;
+    const market = this.social.nightMarket;
+    if (market.day !== day) {
+      market.day = day;
+      market.bought = [];
+    }
+    const offer = ferryOffers(this.seed, day)[index];
+    if (!offer || market.bought.includes(index)) {
+      gameEvents.emit('toast', { text: '⛵ "That one has already crossed tonight."' });
+      sfx('error');
+      return;
+    }
+    if (!this.state.spendGold(offer.price)) {
+      gameEvents.emit('toast', { text: `⛵ "The toll is ${offer.price.toLocaleString()}g. No coin, no crossing."` });
+      sfx('error');
+      return;
+    }
+    market.bought.push(index);
+    this.giveOrDrop(offer.itemId, 1);
+    sfx('coin');
+    gameEvents.emit('toast', { text: `⛵ The Ferryman bows and hands you a ${ITEMS[offer.itemId].name}.` });
+    this.reportState(true);
+    this.marketTraded();
+  }
+
+  private emitMarket(): void {
+    const inv = this.state.inventory;
+    const day = this.time_.day;
+    const market = this.social.nightMarket;
+    const bought = market.day === day ? market.bought : [];
+    gameEvents.emit('market:state', {
+      spirit: this.marketSpirit,
+      spirits: SPIRIT_IDS.map((id) => ({ id, name: SPIRITS[id].name, title: SPIRITS[id].title, emoji: SPIRITS[id].emoji, greeting: SPIRITS[id].greeting })),
+      gold: this.state.gold,
+      wick: WICK_BUYS.map((b) => ({ itemId: b.itemId, itemName: ITEMS[b.itemId].name, price: b.price, have: inv.count(b.itemId) })),
+      moth: MOTH_TRADES.map((t, index) => ({
+        index,
+        give: t.give.map((g) => ({ itemId: g.itemId, itemName: ITEMS[g.itemId].name, quantity: g.quantity, have: inv.count(g.itemId) })),
+        get: { itemId: t.get.itemId, itemName: ITEMS[t.get.itemId].name, quantity: t.get.quantity },
+        can: t.give.every((g) => inv.count(g.itemId) >= g.quantity),
+      })),
+      ferry: ferryOffers(this.seed, day).map((o, index) => ({ index, itemId: o.itemId, itemName: ITEMS[o.itemId].name, price: o.price, bought: bought.includes(index) })),
     });
   }
 

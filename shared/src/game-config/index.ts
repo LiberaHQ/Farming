@@ -139,3 +139,4 @@ export * from './orchard';
 export * from './daily';
 export * from './freight';
 export * from './tidal';
+export * from './nightMarket';

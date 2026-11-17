@@ -1399,6 +1399,29 @@ a.btn {
   grid-template-columns: 1fr auto;
 }
 
+/* ---------- Ghost night market ---------- */
+
+.market-greeting {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-style: italic;
+  color: #d8e4ff;
+  background: rgba(120, 140, 200, 0.12);
+  border-left: 3px solid #a8c8ff;
+  border-radius: 3px;
+}
+
+.market-give {
+  display: block;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.market-none {
+  opacity: 0.55;
+}
+
 .friend-list li {
   display: grid;
   grid-template-columns: 1fr auto 110px;

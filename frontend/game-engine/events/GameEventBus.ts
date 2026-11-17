@@ -39,7 +39,7 @@ export interface InventorySlotView {
   q?: 1 | 2;
 }
 
-export type PanelId = 'inventory' | 'crafting' | 'shop' | 'chest' | 'character' | 'menu' | 'dialogue' | 'map' | 'board' | 'trade' | 'mine' | 'mail' | 'collection' | 'settings' | 'shipping' | 'summary' | 'journal' | 'pet' | 'carnival' | 'calendar' | 'freight';
+export type PanelId = 'inventory' | 'crafting' | 'shop' | 'chest' | 'character' | 'menu' | 'dialogue' | 'map' | 'board' | 'trade' | 'mine' | 'mail' | 'collection' | 'settings' | 'shipping' | 'summary' | 'journal' | 'pet' | 'carnival' | 'calendar' | 'freight' | 'market';
 
 /** The merchant you're trading with, and what's on offer. */
 export interface ShopContext {
@@ -71,6 +71,20 @@ export interface BoardRequestView {
   reward: number;
   text: string;
   done: boolean;
+}
+
+/** The ghost night market, as its panel shows it. */
+export interface MarketView {
+  /** Whose stall the panel opens on. */
+  spirit: 'wick' | 'moth' | 'ferryman';
+  spirits: Array<{ id: 'wick' | 'moth' | 'ferryman'; name: string; title: string; emoji: string; greeting: string }>;
+  gold: number;
+  /** Old Wick's prices, and how many you carry. */
+  wick: Array<{ itemId: ItemId; itemName: string; price: number; have: number }>;
+  /** Madame Moth's swaps. */
+  moth: Array<{ index: number; give: Array<{ itemId: ItemId; itemName: string; quantity: number; have: number }>; get: { itemId: ItemId; itemName: string; quantity: number }; can: boolean }>;
+  /** The ferryman's goods tonight. */
+  ferry: Array<{ index: number; itemId: ItemId; itemName: string; price: number; bought: boolean }>;
 }
 
 /** One order at the freight depot, as the board shows it. */
@@ -147,6 +161,7 @@ export interface GameEventMap {
   /** Community projects: items given so far. */
   'community:state': CommunityProgress;
   /** The freight depot: orders from the towns down the line, and today's remaining trains. */
+  'market:state': MarketView;
   'freight:state': {
     trains: string[];
     towns: Array<{ name: string; emoji: string; blurb: string; delivered: number; bonus: number }>;
@@ -243,6 +258,10 @@ export interface GameCommandMap {
   'board:deliver': { index: number };
   /** Freight depot: load what you carry into an order. */
   'freight:load': { id: number };
+  /** Ghost night market: sell to Old Wick (one, or all you carry), swap with Madame Moth, buy from the ferryman. */
+  'market:sell': { itemId: ItemId; all: boolean };
+  'market:barter': { index: number };
+  'market:buy': { index: number };
   'community:donate': { goal: CommunityGoalId; itemId: ItemId };
   'ship:add': { slot: number };
   'equip:wear': { slot: number };

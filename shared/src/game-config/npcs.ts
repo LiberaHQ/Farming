@@ -95,7 +95,7 @@ export const NPCS: Record<NpcId, NpcDef> = {
       buys: 'any',
       barter: [{ give: [{ itemId: 'fiber', quantity: 10 }], get: { itemId: 'turnip_seeds', quantity: 3 } }],
     },
-    gifts: { loved: ['pumpkin', 'pumpkin_pie'], liked: ['carrot', 'turnip', 'berry_jam'] },
+    gifts: { loved: ['moon_bloom', 'pumpkin', 'pumpkin_pie'], liked: ['carrot', 'turnip', 'berry_jam'] },
     lines: {
       general: [
         'Fresh seeds, fair prices. Take a look!',
@@ -144,7 +144,7 @@ export const NPCS: Record<NpcId, NpcDef> = {
         { give: [{ itemId: 'painted_egg', quantity: 8 }], get: { itemId: 'golden_egg', quantity: 1 } },
       ],
     },
-    gifts: { loved: ['pumpkin', 'egg'], liked: ['berries', 'berry_jam', 'carrot'] },
+    gifts: { loved: ['moon_bloom', 'pumpkin', 'egg'], liked: ['berries', 'berry_jam', 'carrot'] },
     lines: {
       general: [
         'Bread just out of the oven — smell that!',
@@ -190,7 +190,7 @@ export const NPCS: Record<NpcId, NpcDef> = {
         { give: [{ itemId: 'stone', quantity: 20 }], get: { itemId: 'lamp_post', quantity: 1 } },
       ],
     },
-    gifts: { loved: ['copper_ore', 'golden_carp', 'gold_ore', 'golden_spike'], liked: ['stone', 'grilled_fish', 'bread', 'iron_ore', 'coal'] },
+    gifts: { loved: ['moon_bloom', 'copper_ore', 'golden_carp', 'gold_ore', 'golden_spike'], liked: ['stone', 'grilled_fish', 'bread', 'iron_ore', 'coal'] },
     lines: {
       general: [
         'Copper sings when you strike it right.',
@@ -230,7 +230,7 @@ export const NPCS: Record<NpcId, NpcDef> = {
       ],
       barter: [{ give: [{ itemId: 'sunfish', quantity: 3 }], get: { itemId: 'grilled_fish', quantity: 2 } }],
     },
-    gifts: { loved: ['golden_carp', 'catfish'], liked: ['trout', 'grilled_fish', 'bread'] },
+    gifts: { loved: ['moon_bloom', 'golden_carp', 'catfish'], liked: ['trout', 'grilled_fish', 'bread'] },
     lines: {
       general: [
         'Cast, wait, and when you see the "!" — reel!',
@@ -281,7 +281,7 @@ export const NPCS: Record<NpcId, NpcDef> = {
         { give: [{ itemId: 'wood', quantity: 8 }, { itemId: 'fiber', quantity: 4 }], get: { itemId: 'scarecrow', quantity: 1 } },
       ],
     },
-    gifts: { loved: ['wood', 'pumpkin_pie'], liked: ['fiber', 'omelette', 'veggie_soup'] },
+    gifts: { loved: ['moon_bloom', 'wood', 'pumpkin_pie'], liked: ['fiber', 'omelette', 'veggie_soup'] },
     lines: {
       general: [
         'Wood\'s honest. Treat it right and it lasts forever.',
@@ -301,7 +301,7 @@ export const NPCS: Record<NpcId, NpcDef> = {
     title: 'Retired farmer',
     appearance: look('#f0c8a8', '#d2a283', '#c9c2b5', '#e6e1d8', '#5a6f9e', '#435580', '#5e5243', '#463d31'),
     hours: { from: 9 * 60, to: 19 * 60 },
-    gifts: { loved: ['veggie_soup', 'turnip'], liked: ['bread', 'berries', 'carrot'] },
+    gifts: { loved: ['moon_bloom', 'veggie_soup', 'turnip'], liked: ['bread', 'berries', 'carrot'] },
     lines: {
       general: [
         'Morning! I walk this path every day. Keeps the knees working.',

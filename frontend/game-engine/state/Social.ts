@@ -18,6 +18,8 @@ import {
   ISLAND_PLOTS,
   TIDE_BEDS,
   freshTidal,
+  freshNightMarket,
+  type NightMarketSave,
   type TidalSave,
 } from '@farming/shared';
 
@@ -79,6 +81,8 @@ export class Social {
   trainsSeen = 0;
   /** Tide beds on the beach. */
   tidal: TidalSave = freshTidal();
+  /** The ghost night market: its note, and the ferryman's goods bought tonight. */
+  nightMarket: NightMarketSave = freshNightMarket();
 
   /** Marks a guide step done; true the first time. */
   mark(id: string): boolean {
@@ -326,6 +330,7 @@ export class Social {
       ghost: { ...this.ghost },
       trainsSeen: this.trainsSeen,
       tidal: structuredClone(this.tidal),
+      nightMarket: structuredClone(this.nightMarket),
     };
   }
 
@@ -358,6 +363,7 @@ export class Social {
     this.ghost = { stage: 0, asked: false };
     this.trainsSeen = 0;
     this.tidal = freshTidal();
+    this.nightMarket = freshNightMarket();
     if (!save) return;
     if (save.petStay) this.petStay = structuredClone(save.petStay);
     this.milestones = new Set(save.milestones ?? []);
@@ -365,6 +371,7 @@ export class Social {
     this.meteorDay = save.meteorDay ?? 0;
     this.ghost = save.ghost ? { ...save.ghost } : { stage: 0, asked: false };
     this.trainsSeen = save.trainsSeen ?? 0;
+    if (save.nightMarket) this.nightMarket = { ...(save.nightMarket.intro ? { intro: true } : {}), day: save.nightMarket.day, bought: [...save.nightMarket.bought] };
     if (save.tidal) this.tidal = { beds: Array.from({ length: TIDE_BEDS }, (_, i) => (save.tidal!.beds[i] ? { ...save.tidal!.beds[i]! } : null)) };
     if (save.island) this.island = { ...structuredClone(save.island), plots: Array.from({ length: ISLAND_PLOTS }, (_, i) => save.island!.plots[i] ?? null) };
     if (save.museum) this.museum = { items: save.museum.items.filter((i): i is ItemId => i in ITEMS), sets: [...save.museum.sets] };
