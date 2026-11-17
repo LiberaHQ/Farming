@@ -293,3 +293,47 @@ export function drawPierLantern(): PixelCanvas {
   p.outline(P.outline);
   return p;
 }
+
+const STAKE = '#7a5434';
+const STAKE_DARK = '#583b24';
+const ROPE = '#d8c8a0';
+
+/**
+ * A tide bed, 20x18 (base row 17): two stakes with a line between, and what
+ * grows on it — an oyster cage filling up, or seaweed fronds lengthening.
+ * `stage` runs from 0 (empty) to `mature`.
+ */
+export function drawTideBed(crop: 'oyster' | 'seaweed' | null, stage: number, mature: number): PixelCanvas {
+  const p = new PixelCanvas(20, 18);
+  for (const x of [1, 17]) {
+    p.rect(x, 4, 2, 13, STAKE);
+    p.rect(x, 4, 1, 13, STAKE_DARK);
+    p.rect(x, 3, 2, 1, '#9a7252');
+  }
+  // The line sags a little between the stakes.
+  for (let x = 3; x < 17; x++) p.set(x, 6 + Math.round(Math.sin(((x - 3) / 13) * Math.PI) * 1.5), ROPE);
+  const t = mature > 0 ? Math.min(1, stage / mature) : 0;
+  if (crop === 'oyster') {
+    // A mesh cage hanging from the line, with more oysters in it as they grow.
+    p.rect(5, 9, 10, 7, '#3a4a4a');
+    p.rect(6, 10, 8, 5, '#6a7a78');
+    for (let x = 6; x < 14; x += 2) p.rect(x, 10, 1, 5, '#4a5a5a');
+    const n = Math.max(1, Math.round(t * 6));
+    const spots = [[7, 13], [10, 13], [12, 12], [8, 11], [11, 10], [9, 12]];
+    for (let i = 0; i < n; i++) {
+      const [x, y] = spots[i];
+      p.rect(x, y, 2, 1, '#9a958a');
+      p.set(x, y - 1, '#e8e2d4');
+    }
+    p.rect(9, 7, 1, 2, ROPE);
+  } else if (crop === 'seaweed') {
+    // Fronds hanging from the line, longer every day.
+    const len = 2 + Math.round(t * 9);
+    for (const [x, dark] of [[5, true], [8, false], [11, true], [14, false]] as const) {
+      for (let y = 8; y < 8 + len; y++) p.set(x + Math.round(Math.sin(y / 1.8 + x) * 0.8), y, dark ? '#2f7a4a' : '#3f9a5a');
+      if (t >= 1) p.set(x, 8 + len, '#6ac47a');
+    }
+  }
+  p.outline(P.outline);
+  return p;
+}

@@ -138,3 +138,4 @@ export * from './events';
 export * from './orchard';
 export * from './daily';
 export * from './freight';
+export * from './tidal';

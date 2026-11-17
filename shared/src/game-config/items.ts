@@ -188,6 +188,9 @@ export const ITEM_IDS = [
   'apple',
   'cherry',
   'peach',
+  'oyster_spat',
+  'seaweed_spores',
+  'oyster',
 ] as const;
 
 export type ItemId = (typeof ITEM_IDS)[number];
@@ -521,7 +524,7 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   pineapple: { id: 'pineapple', name: 'Pineapple', description: 'Sweet and spiky. Grown on the island.', category: 'crop', maxStack: 99, sellPrice: 300, energy: 45 },
   taro_tuber: { id: 'taro_tuber', name: 'Taro Tuber', description: 'Plant it in the island garden (no watering needed).', category: 'seed', maxStack: 99, sellPrice: 8 },
   taro: { id: 'taro', name: 'Taro Root', description: 'A starchy island root. Grows fast.', category: 'crop', maxStack: 99, sellPrice: 90, energy: 30 },
-  pearl: { id: 'pearl', name: 'Pearl', description: 'From the giant clam in the island cave. Rare and lovely.', category: 'resource', maxStack: 99, sellPrice: 400 },
+  pearl: { id: 'pearl', name: 'Pearl', description: 'From the giant clam in the island cave, and now and then from your own oysters. Rare and lovely.', category: 'resource', maxStack: 99, sellPrice: 400 },
   ruby: { id: 'ruby', name: 'Ruby', description: 'A deep red gem from the island cave.', category: 'resource', maxStack: 99, sellPrice: 250 },
   jade: { id: 'jade', name: 'Jade', description: 'A smooth green stone from the island cave.', category: 'resource', maxStack: 99, sellPrice: 180 },
   parrotfish: { id: 'parrotfish', name: 'Parrotfish', description: 'A rainbow reef fish. Only around the island.', category: 'fish', maxStack: 99, sellPrice: 140, energy: 25 },
@@ -539,6 +542,23 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   apple: { id: 'apple', name: 'Apple', description: 'Crisp and sweet, from your own apple tree. Edible.', category: 'crop', maxStack: 99, sellPrice: 60, energy: 18 },
   cherry: { id: 'cherry', name: 'Cherries', description: 'A handful of dark, juicy cherries. Edible.', category: 'crop', maxStack: 99, sellPrice: 50, energy: 14 },
   peach: { id: 'peach', name: 'Peach', description: 'Soft, fuzzy and fragrant. Edible.', category: 'crop', maxStack: 99, sellPrice: 80, energy: 22 },
+  oyster_spat: {
+    id: 'oyster_spat',
+    name: 'Oyster Spat',
+    description: 'Baby oysters. Plant them in a tide bed on the beach while the tide is out (about 7–11am and 7–11pm), then tend them at low tide each day.',
+    category: 'seed',
+    maxStack: 99,
+    sellPrice: 15,
+  },
+  seaweed_spores: {
+    id: 'seaweed_spores',
+    name: 'Seaweed Spores',
+    description: 'Tie them to a tide bed on the beach at low tide. Tend the line each day; it grows back after every cut.',
+    category: 'seed',
+    maxStack: 99,
+    sellPrice: 5,
+  },
+  oyster: { id: 'oyster', name: 'Oyster', description: 'Grown in your own tide bed. Briny and fresh — and once in a while there is a pearl inside.', category: 'resource', maxStack: 99, sellPrice: 80 },
   coal: { id: 'coal', name: 'Coal', description: 'A lump of coal that bounced off the train. Bram loves it for his forge.', category: 'resource', maxStack: 99, sellPrice: 25 },
   golden_spike: { id: 'golden_spike', name: 'Golden Spike', description: 'A ceremonial rail spike, gleaming gold. It must have rattled loose from the train. Very rare.', category: 'resource', maxStack: 99, sellPrice: 750 },
   silver_locket: { id: 'silver_locket', name: 'Silver Locket', description: "Elsie's locket, with a tiny painted portrait inside. Bring it to her at the graveyard after dark.", category: 'resource', maxStack: 1 },

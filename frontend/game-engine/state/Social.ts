@@ -16,6 +16,9 @@ import {
   type IslandSave,
   type SocialSave,
   ISLAND_PLOTS,
+  TIDE_BEDS,
+  freshTidal,
+  type TidalSave,
 } from '@farming/shared';
 
 export type GiftReaction = 'loved' | 'liked' | 'neutral';
@@ -74,6 +77,8 @@ export class Social {
   /** Elsie the ghost: belongings returned (3 = she has moved on), and whether she asked for the next one. */
   ghost = { stage: 0, asked: false };
   trainsSeen = 0;
+  /** Tide beds on the beach. */
+  tidal: TidalSave = freshTidal();
 
   /** Marks a guide step done; true the first time. */
   mark(id: string): boolean {
@@ -320,6 +325,7 @@ export class Social {
       meteorDay: this.meteorDay,
       ghost: { ...this.ghost },
       trainsSeen: this.trainsSeen,
+      tidal: structuredClone(this.tidal),
     };
   }
 
@@ -351,6 +357,7 @@ export class Social {
     this.meteorDay = 0;
     this.ghost = { stage: 0, asked: false };
     this.trainsSeen = 0;
+    this.tidal = freshTidal();
     if (!save) return;
     if (save.petStay) this.petStay = structuredClone(save.petStay);
     this.milestones = new Set(save.milestones ?? []);
@@ -358,6 +365,7 @@ export class Social {
     this.meteorDay = save.meteorDay ?? 0;
     this.ghost = save.ghost ? { ...save.ghost } : { stage: 0, asked: false };
     this.trainsSeen = save.trainsSeen ?? 0;
+    if (save.tidal) this.tidal = { beds: Array.from({ length: TIDE_BEDS }, (_, i) => (save.tidal!.beds[i] ? { ...save.tidal!.beds[i]! } : null)) };
     if (save.island) this.island = { ...structuredClone(save.island), plots: Array.from({ length: ISLAND_PLOTS }, (_, i) => save.island!.plots[i] ?? null) };
     if (save.museum) this.museum = { items: save.museum.items.filter((i): i is ItemId => i in ITEMS), sets: [...save.museum.sets] };
     for (const [id, v] of Object.entries(save.homeTreat ?? {})) if (isNpcId(id)) this.homeTreat[id] = v;

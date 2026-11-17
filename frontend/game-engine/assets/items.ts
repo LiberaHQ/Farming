@@ -917,6 +917,35 @@ const DRAW = {
     p.rect(6, 12, 4, 2, '#d8a0c8');
     p.set(9, 8, '#ffffff');
   },
+  oyster: (p: PixelCanvas) => {
+    // A rough grey shell, propped open on its pale pearly inside.
+    for (let y = 4; y <= 13; y++) for (let x = 2; x <= 14; x++) if (((x - 8) / 6) ** 2 + ((y - 9) / 4.6) ** 2 <= 1) p.set(x, y, (x * 3 + y) % 5 === 0 ? '#6e6a62' : '#8a857a');
+    for (let y = 7; y <= 11; y++) for (let x = 5; x <= 11; x++) if (((x - 8) / 3.4) ** 2 + ((y - 9) / 2) ** 2 <= 1) p.set(x, y, '#e8e2d4');
+    p.rect(6, 8, 3, 1, '#f8f4ea');
+    p.set(9, 10, '#cfc6b4');
+    for (const x of [3, 6, 10, 13]) p.set(x, 5 + (x % 2), '#5a564e');
+  },
+  oyster_spat: (p: PixelCanvas) => {
+    // A little mesh bag of baby oysters.
+    p.rect(4, 4, 8, 10, '#c8b68e');
+    for (let y = 5; y < 14; y += 2) p.rect(4, y, 8, 1, '#a8966e');
+    for (let x = 5; x < 12; x += 2) p.rect(x, 4, 1, 10, '#a8966e');
+    p.rect(6, 2, 4, 2, '#8a6a42');
+    for (const [x, y] of [[6, 7], [9, 9], [6, 11], [9, 6], [8, 12]]) {
+      p.set(x, y, '#8a857a');
+      p.set(x + 1, y, '#e8e2d4');
+    }
+  },
+  seaweed_spores: (p: PixelCanvas) => {
+    // A seed packet with a frond of seaweed on it.
+    p.rect(4, 2, 8, 12, '#d8eee4');
+    p.rect(4, 2, 8, 2, '#8ac4a8');
+    p.rect(11, 4, 1, 10, '#a8d8c0');
+    for (let y = 5; y < 13; y++) p.set(7 + Math.round(Math.sin(y / 1.6) * 1.2), y, '#2f7a4a');
+    p.set(9, 7, '#3f9a5a');
+    p.set(9, 10, '#3f9a5a');
+    p.rect(5, 12, 2, 1, '#5a8aa8');
+  },
   coconut: (p: PixelCanvas) => {
     for (let y = 3; y <= 13; y++) for (let x = 3; x <= 13; x++) if (((x - 8) / 5) ** 2 + ((y - 8.5) / 5) ** 2 <= 1) p.set(x, y, (x + y) % 3 ? '#7a5232' : '#5e3a1e');
     p.set(6, 6, '#3a2418');

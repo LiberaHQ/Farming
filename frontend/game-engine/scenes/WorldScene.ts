@@ -3556,6 +3556,10 @@ export class WorldScene extends Phaser.Scene {
         repair: () => this.repairBoat(),
         sail: () => this.switchArea(SCENES.Island, this.islandData('dock')),
       },
+      tidal: {
+        save: this.social.tidal,
+        changed: () => this.reportState(true),
+      },
     };
   }
 

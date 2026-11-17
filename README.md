@@ -3,6 +3,21 @@
 A browser-based, top-down 2D sandbox adventure: farming, exploration, gathering, crafting and building.
 **Current state: Phase 5 + two big content updates** — co-op multiplayer over Socket.IO (shared worlds the server is in charge of, synced movement, chat, trading, co-op farming, host migration), accounts, profiles and cloud saves in PostgreSQL, and a game with days and seasons, weather, building, a village market of five merchants with schedules, festivals, heart events and mail, a 30-floor mine with combat, 11 crops, a greenhouse and artisan machines, a barn with cows and sheep, a beach, a cottage you furnish, community projects, a collection with achievements, settings for keys, UI size, day length, gamepads and touch screens — and now a story, villager requests and first-day tips, a shipping bin with a morning report, food buffs, a fishing minigame and crab pots, mine bosses and treasure, rings and armour, an old forest with a hermit, pets, romance and marriage, silos, wells, sheds, ducks and rabbits, decorations and automation, a cottage that comes furnished (with displays for your best fish, food and gems), public co-op games, friends, cabins, a shared wallet, and emotes.
 
+## Tidal farming on the beach
+
+- **Tide beds** (`shared/src/game-config/tidal.ts`, `BeachScene` bed actions, art `drawTideBed` in `assets/beach.ts`):
+  six beds — two stakes and a rope line each — in the strip of beach the sea covers twice a day. They sit just
+  under the sea's layer, so the tide hides them as it comes in and they reappear as it goes out.
+- **Only at low tide:** the beds are out of the water about **6:40–11am and 6:40–11pm** (tide level ≥ 0.7). The
+  beach label says "tide beds open", or when they next will be. At high tide a bed can't be worked — and you
+  can still cast your line over it.
+- **What grows:** 🦪 **oysters** (spat 60g at Finn's) are ready after 5 days of care and give 2–3 oysters (80g,
+  Finn pays 95g) with a 10% chance of a pearl; the bed is empty again afterwards. 🌿 **Seaweed** (spores 25g) is
+  ready after 3 days, gives 4–6 seaweed, and grows back after 2 more days of care.
+- **The routine:** planting counts as the first day's care; after that a bed grows one stage for each day you
+  tend it at low tide (2 energy, a little fishing XP). Skip a day and it simply waits. A hoe clears a bed.
+- Oysters can now turn up in Port Wren's freight orders. Saved per player in `SocialSave.tidal`.
+
 ## Train contracts at the freight depot
 
 - **The depot** (`systems/TrainSystem.ts` timetable, `state/Freight.ts`, rules in `shared/src/game-config/freight.ts`,

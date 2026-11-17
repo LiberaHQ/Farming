@@ -78,6 +78,7 @@ export const TOWNS: Record<TownId, TownDef> = {
       { itemId: 'crab', min: 2, max: 10 },
       { itemId: 'shrimp', min: 3, max: 15 },
       { itemId: 'seaweed', min: 10, max: 40 },
+      { itemId: 'oyster', min: 3, max: 15 },
     ],
   },
   ironhollow: {

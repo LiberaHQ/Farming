@@ -1,6 +1,26 @@
 import * as Phaser from 'phaser';
 import { skills } from '../state/skills';
-import { GAME_CONFIG, tideLevel, type ItemId, type Season } from '@farming/shared';
+import { daily } from '../state/daily';
+import {
+  GAME_CONFIG,
+  ITEMS,
+  TIDE_BED_ROWS,
+  TIDE_CROPS,
+  TIDE_TEND_ENERGY,
+  afterHarvest,
+  bedReady,
+  formatClock,
+  nextLowTide,
+  plantBed,
+  tendBed,
+  tendsLeft,
+  tideBedsExposed,
+  tideCropForSeed,
+  tideLevel,
+  type ItemId,
+  type Season,
+  type TidalSave,
+} from '@farming/shared';
 import { itemTextureKey } from '../assets/registerTextures';
 import { PixelCanvas } from '../assets/PixelCanvas';
 import {
@@ -14,6 +34,7 @@ import {
   drawDriftwood,
   drawDuneGrass,
   drawGull,
+  drawTideBed,
   drawLifeguardTower,
   drawPalm,
   drawPierLantern,
@@ -39,6 +60,8 @@ export interface BeachSceneData {
   arrival?: 'gate' | 'boat';
   /** The old rowing boat by the pier: patch it up once, then row to the island. */
   boat: { repaired(): boolean; repair(): boolean; sail(): void };
+  /** Tide beds: the player's save (changed in place), and a call to say it changed. */
+  tidal: { save: TidalSave; changed(): void };
 }
 
 const W = 34;
@@ -77,6 +100,8 @@ const hash = (x: number, y: number) => {
 export class BeachScene extends AreaScene<BeachSceneData> {
   private forage!: BeachSceneData['forage'];
   private boatHost!: BeachSceneData['boat'];
+  private tidal!: BeachSceneData['tidal'];
+  private bedSprites: Phaser.GameObjects.Image[] = [];
   private arrival: 'gate' | 'boat' = 'gate';
   private boatPatch: Phaser.GameObjects.Graphics | null = null;
   private fishing!: FishingSystem;
@@ -104,6 +129,8 @@ export class BeachScene extends AreaScene<BeachSceneData> {
     super.init(data);
     this.forage = data.forage;
     this.boatHost = data.boat;
+    this.tidal = data.tidal;
+    this.bedSprites = [];
     this.arrival = data.arrival ?? 'gate';
     this.boatPatch = null;
     this.items = [];
@@ -159,6 +186,7 @@ export class BeachScene extends AreaScene<BeachSceneData> {
     this.fishing.isHeld = () => this.controls.useHeld();
     this.spawnForage();
     this.spawnPools();
+    this.drawBeds();
     this.updateTide(0);
     // Waves lapping.
     this.time.addEvent({ delay: 2600, loop: true, callback: () => sfx('splash', { volume: 0.12, rate: 0.6 + Math.random() * 0.2 }) });
@@ -216,6 +244,11 @@ export class BeachScene extends AreaScene<BeachSceneData> {
           sfx('craft');
         },
       };
+    }
+    const bed = this.bedAt(tx, ty);
+    if (bed !== null) {
+      const action = this.bedAction(bed, mode, rod);
+      if (action) return action;
     }
     if (mode === 'use' && rod) {
       // Cast from the shore or the pier into the sea (one tile further from the pier's edge is fine too).
@@ -440,7 +473,9 @@ export class BeachScene extends AreaScene<BeachSceneData> {
     }
     const level = tideLevel(minute);
     const rising = tideLevel(minute + 10) < level;
-    const label = level > 0.8 ? 'low tide 🐚' : level < 0.2 ? 'high tide' : rising ? 'tide coming in' : 'tide going out';
+    const next = nextLowTide(minute);
+    const beds = tideBedsExposed(minute) ? ' · tide beds open' : next ? ` · tide beds at ${formatClock(next.from)}` : '';
+    const label = (level > 0.8 ? 'low tide 🐚' : level < 0.2 ? 'high tide' : rising ? 'tide coming in' : 'tide going out') + beds;
     if (label !== this.tideLabel) {
       this.tideLabel = label;
       gameEvents.emit('area:label', { label: `🏖 The Beach · ${label}` });
@@ -482,6 +517,145 @@ export class BeachScene extends AreaScene<BeachSceneData> {
       const sprite = this.add.image(x, y + 1, itemTextureKey(itemId)).setScale(0.7).setDepth(DEPTH.ySortBase + y + 2);
       this.items.push({ id, sprite, itemId, pool: true });
     });
+  }
+
+  // ---------- Tide beds ----------
+
+  /** Where bed `i` stands: in the strip the tide covers, a little seaward of the high-water mark. */
+  private bedPos(i: number): { x: number; y: number; tx: number; ty: number } {
+    const size = GAME_CONFIG.tileSize;
+    const ty = TIDE_BED_ROWS[i];
+    const x = Math.round(shoreX(ty * size + 8) + 12);
+    return { x, y: ty * size + 8, tx: Math.floor(x / size), ty };
+  }
+
+  private bedAt(tx: number, ty: number): number | null {
+    for (let i = 0; i < TIDE_BED_ROWS.length; i++) {
+      const p = this.bedPos(i);
+      if (p.tx === tx && p.ty === ty) return i;
+    }
+    return null;
+  }
+
+  /**
+   * Beds sit just under the sea's layer, so the tide hides them as it comes
+   * in and they appear again as it goes out.
+   */
+  private drawBeds(): void {
+    for (const s of this.bedSprites) s.destroy();
+    this.bedSprites = [];
+    const size = GAME_CONFIG.tileSize;
+    for (let i = 0; i < TIDE_BED_ROWS.length; i++) {
+      const bed = this.tidal.save.beds[i] ?? null;
+      const mature = bed ? TIDE_CROPS[bed.crop].matureStage : 0;
+      const stage = bed ? bed.stage : 0;
+      const key = `tide-bed-${bed?.crop ?? 'empty'}-${stage}`;
+      if (!this.textures.exists(key)) this.textures.addCanvas(key, drawTideBed(bed?.crop ?? null, stage, mature).toCanvas());
+      const { x, ty } = this.bedPos(i);
+      this.bedSprites.push(this.add.image(x, (ty + 1) * size - 1, key).setOrigin(0.5, 1).setDepth(DEPTH.ground + 0.25));
+    }
+  }
+
+  private bedAction(i: number, mode: 'use' | 'interact', rod: boolean): AreaAction | null {
+    const toast = (text: string) => gameEvents.emit('toast', { text });
+    const { day, minute } = this.host.calendar();
+    const bed = this.tidal.save.beds[i] ?? null;
+    const what = bed ? TIDE_CROPS[bed.crop].name : 'Tide bed';
+    if (!tideBedsExposed(minute)) {
+      // Under the sea: you can still fish over it.
+      if (mode === 'use' && rod) return null;
+      const next = nextLowTide(minute);
+      const when = next ? `the tide goes out at ${formatClock(next.from)}` : 'the tide goes out tomorrow morning';
+      return { verb: `${what} · under the tide`, key: 'E', info: true, run: () => toast(`The ${bed ? what.toLowerCase() : 'tide bed'} is under the sea. Come back when ${when}.`) };
+    }
+    const stack = this.host.state.inventory.selectedStack;
+    if (!bed) {
+      const crop = stack ? tideCropForSeed(stack.itemId) : undefined;
+      if (crop && mode === 'use') return { verb: `Plant ${ITEMS[crop.seedItem].name}`, key: 'Space', run: () => this.plantBed(i, crop.id) };
+      return {
+        verb: 'Empty tide bed',
+        key: 'E',
+        info: true,
+        run: () => toast('An empty tide bed. Plant oyster spat or seaweed spores here while the tide is out (Finn sells them), then tend it at every low tide.'),
+      };
+    }
+    const def = TIDE_CROPS[bed.crop];
+    if (mode === 'use' && stack?.itemId === 'hoe') return { verb: `Clear the ${def.name.toLowerCase()}`, key: 'Space', run: () => this.clearBed(i) };
+    if (bedReady(bed)) return { verb: def.harvestVerb, key: mode === 'use' ? 'Space' : 'E', run: () => this.harvestBed(i) };
+    const left = tendsLeft(bed);
+    const more = `${left} more low tide${left === 1 ? '' : 's'}`;
+    if (bed.tended >= day) return { verb: `${def.name} · tended today`, key: 'E', info: true, run: () => toast(`${def.name}: tended today. Ready after ${more} of care.`) };
+    if (this.host.state.energy < TIDE_TEND_ENERGY) return { verb: 'Too tired', key: 'E', blocked: true, run: () => undefined };
+    return { verb: `${def.tendVerb} (${more})`, key: mode === 'use' ? 'Space' : 'E', run: () => this.tendBed(i) };
+  }
+
+  private plantBed(i: number, crop: keyof typeof TIDE_CROPS): void {
+    const { day, minute } = this.host.calendar();
+    const inv = this.host.state.inventory;
+    const seed = TIDE_CROPS[crop].seedItem;
+    if (this.tidal.save.beds[i] || !tideBedsExposed(minute) || inv.selectedStack?.itemId !== seed || inv.removeAt(inv.selected, 1) !== 1) return;
+    this.tidal.save.beds[i] = plantBed(crop, day);
+    this.tidal.changed();
+    sfx('plant');
+    this.drawBeds();
+    const def = TIDE_CROPS[crop];
+    gameEvents.emit('toast', { text: `${def.name} planted. Tend the bed at low tide each day — ${def.matureStage - 1} more days until it's ready.` });
+  }
+
+  private tendBed(i: number): void {
+    const { day, minute } = this.host.calendar();
+    const bed = this.tidal.save.beds[i];
+    if (!bed || !tideBedsExposed(minute)) return;
+    const next = tendBed(bed, day);
+    if (!next) return;
+    if (!this.host.state.spendEnergy(TIDE_TEND_ENERGY)) {
+      gameEvents.emit('toast', { text: "You're too tired." });
+      return;
+    }
+    this.tidal.save.beds[i] = next;
+    this.tidal.changed();
+    skills.gain('fishing', 2);
+    sfx('splash', { volume: 0.35, rate: 1.2 });
+    const p = this.bedPos(i);
+    this.fx.burst('water', p.x, p.y, 6);
+    this.drawBeds();
+    if (bedReady(next)) gameEvents.emit('toast', { text: `The ${TIDE_CROPS[next.crop].name.toLowerCase()} are ready to harvest!` });
+  }
+
+  private harvestBed(i: number): void {
+    const { day, minute } = this.host.calendar();
+    const bed = this.tidal.save.beds[i];
+    if (!bed || !bedReady(bed) || !tideBedsExposed(minute)) return;
+    const def = TIDE_CROPS[bed.crop];
+    const lucky = this.host.state.hasBuff('luck');
+    const n = Phaser.Math.Between(def.yield[0], def.yield[1]) + (lucky && Math.random() < 0.5 ? 1 : 0) + (skills.bonus('fishing') ? 1 : 0);
+    this.give(def.harvestItem, n);
+    if (def.pearlChance && Math.random() < def.pearlChance * (lucky ? 1.5 : 1)) {
+      this.give('pearl', 1);
+      gameEvents.emit('toast', { text: '✨ There was a pearl in one of the oysters!' });
+    }
+    this.tidal.save.beds[i] = afterHarvest(bed, day);
+    this.tidal.changed();
+    skills.gain('fishing', bed.crop === 'oyster' ? 10 : 4);
+    daily.note('harvest');
+    sfx('harvest');
+    this.drawBeds();
+  }
+
+  private clearBed(i: number): void {
+    if (!this.tidal.save.beds[i]) return;
+    this.tidal.save.beds[i] = null;
+    this.tidal.changed();
+    sfx('till');
+    this.drawBeds();
+    gameEvents.emit('toast', { text: 'You clear the tide bed. Plant something new at low tide.' });
+  }
+
+  /** Into the bag; anything that doesn't fit lands at your feet (on dry sand). */
+  private give(itemId: ItemId, quantity: number): void {
+    const left = this.host.state.inventory.add(itemId, quantity);
+    if (quantity - left > 0) gameEvents.emit('item:collected', { itemId, quantity: quantity - left });
+    if (left > 0) this.drops.spawn(itemId, left, this.player.x, this.player.y - 4);
   }
 
   /** On a dry day, a pod of dolphins leaps out beyond the pier now and then. */

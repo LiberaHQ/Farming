@@ -7,6 +7,7 @@ import type { CommunityProgress } from '../game-config/community';
 import type { FruitTreeKind } from '../game-config/orchard';
 import type { DailySave } from '../game-config/daily';
 import type { FreightSave } from '../game-config/freight';
+import type { TidalSave } from '../game-config/tidal';
 
 import type { Letter } from '../game-config/village';
 import type { InteriorSave } from '../game-config/interior';
@@ -161,6 +162,8 @@ export interface SocialSave {
   horse?: { name: string; x: number; y: number };
   /** Train contracts at the freight depot: open orders, orders on their way, and deliveries per town. */
   freight?: FreightSave;
+  /** Tide beds on the beach: what's growing in each, and how far along. */
+  tidal?: TidalSave;
 }
 
 export interface IslandSave {

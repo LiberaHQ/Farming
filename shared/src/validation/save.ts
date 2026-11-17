@@ -19,6 +19,7 @@ import { SAVE_VERSION, type CarnivalSave, type IslandSave, type QuestSave, type 
 import { CARNIVAL_GAME_IDS } from '../game-config/carnival';
 import { FRUIT_TREE_MAX_FRUIT, isFruitTreeKind, isQuality } from '../game-config/orchard';
 import { DAILY_KINDS, type DailyKind, type DailySave } from '../game-config/daily';
+import { TIDE_BEDS, TIDE_CROPS, isTideCropId, type TidalSave } from '../game-config/tidal';
 import { FREIGHT_MAX_CONTRACTS, FREIGHT_STATUSES, TOWN_IDS, freightUnitPrice, isTownId, type FreightContract, type FreightSave, type FreightStatus } from '../game-config/freight';
 import type { WorldObjectKind, WorldObjectSpec } from '../types/world';
 
@@ -184,6 +185,21 @@ function freight(v: Record<string, unknown>): FreightSave {
   };
 }
 
+function tidal(v: Record<string, unknown>): TidalSave {
+  const beds = Array.isArray(v.beds) ? v.beds.slice(0, TIDE_BEDS) : [];
+  return {
+    beds: Array.from({ length: TIDE_BEDS }, (_, i) => {
+      const b = beds[i];
+      if (!isObj(b) || !isTideCropId(b.crop)) return null;
+      return {
+        crop: b.crop,
+        stage: int(b.stage, 1, TIDE_CROPS[b.crop].matureStage, `social.tidal.beds[${i}].stage`),
+        tended: int(b.tended, 0, 200_000, `social.tidal.beds[${i}].tended`),
+      };
+    }),
+  };
+}
+
 function social(v: unknown): SocialSave | undefined {
   if (v === undefined || v === null) return undefined;
   if (!isObj(v)) return fail('social must be an object');
@@ -226,6 +242,7 @@ function social(v: unknown): SocialSave | undefined {
     ...(v.trainsSeen === undefined ? {} : { trainsSeen: int(v.trainsSeen, 0, 1_000_000, 'social.trainsSeen') }),
     ...(isObj(v.daily) ? { daily: daily(v.daily) } : {}),
     ...(isObj(v.freight) ? { freight: freight(v.freight) } : {}),
+    ...(isObj(v.tidal) ? { tidal: tidal(v.tidal) } : {}),
     ...(isObj(v.horse) && typeof v.horse.name === 'string'
       ? { horse: { name: v.horse.name.trim().slice(0, 16) || 'Clover', x: int(Math.round(Number(v.horse.x) || 0), 0, 100_000, 'horse.x'), y: int(Math.round(Number(v.horse.y) || 0), 0, 100_000, 'horse.y') } }
       : {}),
