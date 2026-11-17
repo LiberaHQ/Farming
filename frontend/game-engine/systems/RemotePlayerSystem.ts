@@ -1,8 +1,9 @@
 import * as Phaser from 'phaser';
-import { resolveAppearance, type AppearanceChoice, type Direction, type ItemId, type MemberView, type PositionTuple } from '@farming/shared';
-import { addCharacterSheet, itemTextureKey, TEXTURES } from '../assets/registerTextures';
+import { APPEARANCE_PARTS, normalizeAppearance, resolveAppearance, type AppearanceChoice, type Direction, type ItemId, type MemberView, type PositionTuple } from '@farming/shared';
+import { addPlayerSheet, itemTextureKey, TEXTURES } from '../assets/registerTextures';
 import { DEPTH } from '../constants';
-import { createCharacterAnimations, FEET_ORIGIN_Y, standFrame, walkAnimKey } from '../entities/Player';
+import { createCharacterAnimations, standFrame, walkAnimKey } from '../entities/Player';
+import { PLAYER_FEET_ORIGIN_Y } from '../assets/playerCharacter';
 
 interface Remote {
   id: string;
@@ -123,7 +124,7 @@ export class RemotePlayerSystem {
       s.setDepth(DEPTH.ySortBase + s.y);
       s.setAlpha(r.inBed ? 0.5 : 1);
       r.shadow.setPosition(s.x, s.y - 1);
-      r.label.setPosition(Math.round(s.x), Math.round(s.y - 24));
+      r.label.setPosition(Math.round(s.x), Math.round(s.y - 30));
       if (r.tool.visible) r.tool.setPosition(s.x + POSE[r.facing].dx, s.y + POSE[r.facing].dy);
     }
   }
@@ -131,10 +132,10 @@ export class RemotePlayerSystem {
   private create(m: MemberView): Remote {
     const look = JSON.stringify(m.appearance);
     const texture = this.ensureTexture(m.id, m.appearance);
-    const sprite = this.scene.add.sprite(m.x, m.y, texture, standFrame(m.facing)).setOrigin(0.5, FEET_ORIGIN_Y);
+    const sprite = this.scene.add.sprite(m.x, m.y, texture, standFrame(m.facing)).setOrigin(0.5, PLAYER_FEET_ORIGIN_Y);
     const shadow = this.scene.add.image(m.x, m.y - 1, TEXTURES.shadowSmall).setDepth(DEPTH.shadow);
     const label = this.scene.add
-      .text(m.x, m.y - 24, m.name, {
+      .text(m.x, m.y - 30, m.name, {
         fontFamily: '"Trebuchet MS", Verdana, sans-serif',
         fontSize: '5px',
         color: '#fff8e8',
@@ -159,9 +160,10 @@ export class RemotePlayerSystem {
 
   /** One character sheet (and walk animations) per player look. */
   private ensureTexture(id: string, appearance: AppearanceChoice): string {
-    const key = `remote-${id}-${Object.values(appearance).join('')}`;
+    const look = normalizeAppearance(appearance);
+    const key = `remote-${id}-${APPEARANCE_PARTS.map((p) => look[p]).join('-')}`;
     if (!this.scene.textures.exists(key)) {
-      addCharacterSheet(this.scene, key, resolveAppearance(appearance));
+      addPlayerSheet(this.scene, key, resolveAppearance(look));
       createCharacterAnimations(this.scene, key);
     }
     return key;

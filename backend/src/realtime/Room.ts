@@ -26,6 +26,7 @@ import {
   type LobbyView,
   type RoomSettings,
   EMOTES,
+  normalizeAppearance,
 } from '@farming/shared';
 import { saveMemberState } from '../models/coopModel';
 import { storeWorld } from '../services/worldService';
@@ -589,7 +590,7 @@ export class Room {
       id: m.id,
       name: m.name,
       host: m.id === this.leaderId,
-      appearance: (m.state?.player.appearance ?? { skin: 0, hair: 0, shirt: 0, pants: 0 }) as AppearanceChoice,
+      appearance: normalizeAppearance(m.state?.player.appearance),
       x: m.x,
       y: m.y,
       facing: m.facing,

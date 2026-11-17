@@ -1,16 +1,17 @@
 import * as Phaser from 'phaser';
 import { GAME_CONFIG, type Direction } from '@farming/shared';
 import { CHARACTER_FRAME, DIRECTION_ROWS } from '../assets/character';
+import { PLAYER_FEET_ORIGIN_Y, PLAYER_FRAME, PLAYER_FEET_ROW } from '../assets/playerCharacter';
 import { TEXTURES } from '../assets/registerTextures';
 import { DEPTH } from '../constants';
 import { sfx } from '../audio/sfx';
 import type { MoveIntent } from '../systems/InputSystem';
 
 const DIRECTIONS: Direction[] = ['down', 'left', 'right', 'up'];
-const FEET_ROW = 22; // pixel row (within the 24px frame) the sprite stands on
 export const walkAnimKey = (texture: string, d: Direction) => `${texture}-walk-${d}`;
 const walkKey = (d: Direction) => walkAnimKey(TEXTURES.player, d);
 export const standFrame = (d: Direction) => DIRECTION_ROWS[d] * CHARACTER_FRAME.framesPerDirection;
+/** Villagers' sprites (16x24) stand on this point; players use PLAYER_FEET_ORIGIN_Y (their sheet is larger). */
 export const FEET_ORIGIN_Y = 22 / CHARACTER_FRAME.height;
 
 /** Registers walk cycles (stand → step A → stand → step B) for a character sheet. */
@@ -43,10 +44,10 @@ export type ToolStyle = 'swing' | 'pour';
 
 /** Hand offset and start/end angles of the held tool, per facing. */
 const TOOL_POSE: Record<Direction, { dx: number; dy: number; flip: boolean; swing: [number, number]; pour: [number, number] }> = {
-  down: { dx: 5, dy: -8, flip: true, swing: [-30, 120], pour: [0, 35] },
-  right: { dx: 5, dy: -9, flip: true, swing: [-40, 100], pour: [0, 35] },
-  left: { dx: -5, dy: -9, flip: false, swing: [40, -100], pour: [0, -35] },
-  up: { dx: -4, dy: -12, flip: false, swing: [30, -70], pour: [0, -30] },
+  down: { dx: 6, dy: -9, flip: true, swing: [-30, 120], pour: [0, 35] },
+  right: { dx: 5, dy: -10, flip: true, swing: [-40, 100], pour: [0, 35] },
+  left: { dx: -5, dy: -10, flip: false, swing: [40, -100], pour: [0, -35] },
+  up: { dx: -5, dy: -14, flip: false, swing: [30, -70], pour: [0, -30] },
 };
 
 /** Angle the fishing rod is held at while the line is out. */
@@ -71,11 +72,11 @@ export class Player {
     y: number,
   ) {
     this.sprite = scene.physics.add.sprite(x, y, TEXTURES.player, standFrame('down'));
-    this.sprite.setOrigin(0.5, FEET_ROW / CHARACTER_FRAME.height);
-    // Collide with the feet only, so the player can walk "behind" tall objects.
-    this.sprite.body.setSize(10, 6).setOffset(3, 16);
+    this.sprite.setOrigin(0.5, PLAYER_FEET_ORIGIN_Y);
+    // Collide with the feet only (the same 10x6 box as before), so the player can walk "behind" tall objects.
+    this.sprite.body.setSize(10, 6).setOffset((PLAYER_FRAME.width - 10) / 2, PLAYER_FEET_ROW + 1 - 6);
     this.sprite.setCollideWorldBounds(true);
-    this.shadow = scene.add.image(x, y, TEXTURES.shadowSmall).setDepth(DEPTH.shadow);
+    this.shadow = scene.add.image(x, y, TEXTURES.shadowSmall).setDepth(DEPTH.shadow).setScale(1.2, 1.1);
     this.tool = scene.add.image(x, y, TEXTURES.sparkle).setOrigin(0.55, 0.9).setVisible(false);
   }
 

@@ -39,6 +39,7 @@ import { drawBatSheet, drawCrabSheet, drawGhostSheet, drawTreasureSheet } from '
 import { drawLadderDown, drawLadderUp, drawMineEntrance, drawMineRock, drawSlimeSheet } from './mine';
 import { drawChickenSheet, drawCowSheet, drawRabbitSheet, drawSheepSheet } from './animals';
 import { CHARACTER_FRAME, drawCharacterSheet } from './character';
+import { drawPlayerSheet, PLAYER_FRAME } from './playerCharacter';
 import { drawCropStage } from './crops';
 import { drawItemIcon } from './items';
 import { P } from './palette';
@@ -278,8 +279,8 @@ export function registerTextures(scene: Phaser.Scene, appearance: CharacterAppea
   add(scene, TEXTURES.sparkle, drawSparkle());
   add(scene, TEXTURES.light, drawLight(128));
 
-  // Characters: the player and NPCs share the same generated sheet layout.
-  addCharacterSheet(scene, TEXTURES.player, appearance);
+  // Characters: the player has a larger sheet of their own; NPCs share the villager sheet. Same frame layout.
+  addPlayerSheet(scene, TEXTURES.player, appearance);
   for (const id of Object.keys(NPCS) as NpcId[]) addCharacterSheet(scene, npcTextureKey(id), NPCS[id].appearance);
 }
 
@@ -291,10 +292,19 @@ export function addCharacterSheet(scene: Phaser.Scene, key: string, appearance: 
   }
 }
 
+/** A player's sheet (you, or another player in co-op): the larger player frames, same layout as villagers. */
+export function addPlayerSheet(scene: Phaser.Scene, key: string, appearance: CharacterAppearance): void {
+  const { width: FW, height: FH, framesPerDirection: N } = PLAYER_FRAME;
+  const sheet = add(scene, key, drawPlayerSheet(appearance));
+  for (let row = 0; row < 4; row++) {
+    for (let f = 0; f < N; f++) sheet.add(row * N + f, 0, f * FW, row * FH, FW, FH);
+  }
+}
+
 /** Redraws the player's sheet in place (character customisation); frames stay valid. */
 export function repaintPlayer(scene: Phaser.Scene, appearance: CharacterAppearance): void {
   const texture = scene.textures.get(TEXTURES.player) as Phaser.Textures.CanvasTexture;
-  const art = drawCharacterSheet(appearance).toCanvas();
+  const art = drawPlayerSheet(appearance).toCanvas();
   texture.context.clearRect(0, 0, texture.width, texture.height);
   texture.context.drawImage(art, 0, 0);
   texture.refresh();

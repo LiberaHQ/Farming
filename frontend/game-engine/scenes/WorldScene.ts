@@ -3431,11 +3431,11 @@ export class WorldScene extends Phaser.Scene {
   /** An emoji bubble that floats over someone's head for a couple of seconds. */
   private showEmote(target: Phaser.GameObjects.Sprite, emote: string): void {
     const bubble = this.add
-      .text(target.x, target.y - 34, emote, { fontSize: '28px', fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif', resolution: 2 })
+      .text(target.x, target.y - 40, emote, { fontSize: '28px', fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif', resolution: 2 })
       .setOrigin(0.5, 1)
       .setScale(0.32)
       .setDepth(DEPTH.fx + 5);
-    const follow = () => bubble.setPosition(target.x, target.y - 34);
+    const follow = () => bubble.setPosition(target.x, target.y - 40);
     this.events.on(Phaser.Scenes.Events.POST_UPDATE, follow);
     this.tweens.add({ targets: bubble, scale: 0.4, duration: 160, yoyo: true });
     this.time.delayedCall(2200, () => {

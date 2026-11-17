@@ -4,6 +4,7 @@ import { HORSE_FRAMES } from '../assets/horse';
 import { TEXTURES } from '../assets/registerTextures';
 import { DEPTH } from '../constants';
 import { standFrame, type Player } from '../entities/Player';
+import { PLAYER_FEET_ORIGIN_Y } from '../assets/playerCharacter';
 
 const CALL_SPEED = 120;
 const MOUNT_RANGE = 30;
@@ -42,7 +43,7 @@ export class HorseSystem {
     this.name = save.name;
     this.sprite = this.scene.add.sprite(save.x, save.y, TEXTURES.horse, HORSE_FRAMES.sideStand).setOrigin(0.5, 1);
     this.shadow = this.scene.add.image(save.x, save.y - 1, TEXTURES.shadowSmall).setDepth(DEPTH.shadow).setScale(2.2, 1.4);
-    this.rider = this.scene.add.image(0, 0, TEXTURES.player, standFrame('down')).setOrigin(0.5, 22 / 24).setVisible(false);
+    this.rider = this.scene.add.image(0, 0, TEXTURES.player, standFrame('down')).setOrigin(0.5, PLAYER_FEET_ORIGIN_Y).setVisible(false);
   }
 
   toSave(): { name: string; x: number; y: number } | undefined {

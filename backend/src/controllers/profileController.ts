@@ -1,5 +1,5 @@
 import type { RequestHandler } from 'express';
-import { APPEARANCE_OPTIONS, APPEARANCE_PARTS, type AppearanceChoice } from '@farming/shared';
+import { normalizeAppearance, type AppearanceChoice } from '@farming/shared';
 import { HttpError } from '../api/errors';
 import { findProfile, updateProfile, type ProfileRow } from '../models/profileModel';
 import { listWorlds } from '../models/worldModel';
@@ -20,17 +20,10 @@ export const getProfile: RequestHandler = async (req, res) => {
   });
 };
 
+/** Any parts left out (an older client) or out of range become the default option. */
 function parseAppearance(value: unknown): AppearanceChoice {
   if (typeof value !== 'object' || value === null) throw new HttpError(400, 'Invalid appearance');
-  const out = {} as AppearanceChoice;
-  for (const part of APPEARANCE_PARTS) {
-    const i = (value as Record<string, unknown>)[part];
-    if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= APPEARANCE_OPTIONS[part].length) {
-      throw new HttpError(400, `Invalid ${part}`);
-    }
-    out[part] = i;
-  }
-  return out;
+  return normalizeAppearance(value);
 }
 
 export const patchProfile: RequestHandler = async (req, res) => {

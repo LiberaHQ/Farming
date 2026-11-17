@@ -3,6 +3,20 @@
 A browser-based, top-down 2D sandbox adventure: farming, exploration, gathering, crafting and building.
 **Current state: Phase 5 + two big content updates** — co-op multiplayer over Socket.IO (shared worlds the server is in charge of, synced movement, chat, trading, co-op farming, host migration), accounts, profiles and cloud saves in PostgreSQL, and a game with days and seasons, weather, building, a village market of five merchants with schedules, festivals, heart events and mail, a 30-floor mine with combat, 11 crops, a greenhouse and artisan machines, a barn with cows and sheep, a beach, a cottage you furnish, community projects, a collection with achievements, settings for keys, UI size, day length, gamepads and touch screens — and now a story, villager requests and first-day tips, a shipping bin with a morning report, food buffs, a fishing minigame and crab pots, mine bosses and treasure, rings and armour, an old forest with a hermit, pets, romance and marriage, silos, wells, sheds, ducks and rabbits, decorations and automation, a cottage that comes furnished (with displays for your best fish, food and gems), public co-op games, friends, cabins, a shared wallet, and emotes.
 
+## Your character
+
+- **A larger player sprite of your own** (`assets/playerCharacter.ts`): 20x30 frames against the villagers' 16x24,
+  drawn at full size so the pixels stay crisp — a round face with two-tone eyes and a glint, blushed cheeks, a
+  slim body, shaded clothes, two-tone shoes and swinging arms. It's built in layers (body, face, outfit, hair,
+  hat), and co-op friends are drawn the same way. Villagers keep their own sheet.
+- **Nine things to choose** (Character in the pause menu, or your profile for new worlds): skin (7), eyes (6),
+  hair style (short, long, ponytail, bun, curly, spiky, bob), hair colour (9), hat (none, straw hat, cap,
+  beanie, bandana, flower), outfit (shirt, T-shirt, overalls, dress), top (10), bottoms (7) and shoes (5).
+  The preview turns to show every side, and 🎲 Randomise rolls a whole new look.
+- Choices are saved as option numbers and new options are only ever added at the end, so existing looks never
+  change. Older saves, profiles and co-op players without the new parts get the original style for them, and a
+  bad value falls back to the default rather than refusing the save.
+
 ## A living ecosystem
 
 - **Deer graze unprotected crops** (`shared/src/game-config/ecosystem.ts`, `systems/EcosystemSystem.ts`): some nights

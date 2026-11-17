@@ -25,6 +25,7 @@ import {
 } from '@farming/shared';
 import { drawChickenSheet, drawCowSheet, drawRabbitSheet, drawSheepSheet } from '@/game-engine/assets/animals';
 import { drawCharacterSheet } from '@/game-engine/assets/character';
+import { drawPlayerSheet, PLAYER_FRAME } from '@/game-engine/assets/playerCharacter';
 import { drawCropStage } from '@/game-engine/assets/crops';
 import {
   drawBarn,
@@ -177,7 +178,7 @@ const variantRng = (kind: string, v: number) => createRng(`${kind}-${v}-v1`);
 
 const CHAR = { w: 16, h: 24, count: 3 } as const;
 
-export const playerArt: Art = { key: 'char-player', name: 'You', draw: () => drawCharacterSheet(DEFAULT_APPEARANCE), frames: CHAR };
+export const playerArt: Art = { key: 'char-player', name: 'You', draw: () => drawPlayerSheet(DEFAULT_APPEARANCE), frames: { w: PLAYER_FRAME.width, h: PLAYER_FRAME.height, count: PLAYER_FRAME.framesPerDirection } };
 
 export const barkerArt: Art = { key: 'char-barker', name: CARNIVAL_BARKER.name, draw: () => drawCharacterSheet(CARNIVAL_BARKER.look), frames: CHAR };
 

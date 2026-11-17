@@ -49,9 +49,11 @@ export function ProfilePage() {
     }
   };
 
-  const pick = async (part: keyof AppearanceChoice, index: number) => {
+  const pick = (part: keyof AppearanceChoice, index: number) => (profile ? setLook({ ...profile.appearance, [part]: index }) : undefined);
+
+  /** Saves a whole look at once (a single change, or a randomised look). */
+  const setLook = async (appearance: AppearanceChoice) => {
     if (!profile) return;
-    const appearance = { ...profile.appearance, [part]: index };
     setProfile({ ...profile, appearance });
     try {
       await api.updateProfile({ appearance });
@@ -116,7 +118,7 @@ export function ProfilePage() {
       <section className="card">
         <h2>Character</h2>
         <p className="hud-muted">Your look for new worlds. Change it in-game from the pause menu too.</p>
-        <CharacterPicker choice={profile.appearance} onPick={(part, index) => void pick(part, index)} />
+        <CharacterPicker choice={profile.appearance} onPick={(part, index) => void pick(part, index)} onSet={(look) => void setLook(look)} />
       </section>
 
       <section className="card">

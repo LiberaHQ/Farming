@@ -166,14 +166,14 @@ export class FishingSystem {
       if (this.timer <= 0) {
         this.phase = 'bite';
         this.timer = FISHING.reactionWindow;
-        this.alert.setPosition(this.player.x + 9, this.player.y - 22).setVisible(true);
+        this.alert.setPosition(this.player.x + 9, this.player.y - 27).setVisible(true);
         sfx('bite');
         this.fx.burst('water', this.target.x, this.target.y, 4);
       }
     } else if (this.phase === 'bite') {
       // Bobber tugged under.
       this.bobber.y = this.target.y + 2 + Math.sin(this.bob / 40) * 1.2;
-      this.alert.setPosition(this.player.x + 9, this.player.y - 22 - Math.abs(Math.sin(this.bob / 90)) * 2);
+      this.alert.setPosition(this.player.x + 9, this.player.y - 27 - Math.abs(Math.sin(this.bob / 90)) * 2);
       if (this.timer <= 0) {
         toast('The fish got away!');
         this.stop();
@@ -304,7 +304,7 @@ export class FishingSystem {
     sfx('splash');
     sfx('catch');
     // Show the catch held up for a moment.
-    const shown = this.scene.add.image(this.player.x, this.player.y - 26, itemTextureKey(caught)).setDepth(DEPTH.fx);
+    const shown = this.scene.add.image(this.player.x, this.player.y - 31, itemTextureKey(caught)).setDepth(DEPTH.fx);
     this.scene.tweens.add({ targets: shown, y: shown.y - 6, alpha: 0, delay: 600, duration: 500, onComplete: () => shown.destroy() });
     if (this.state.inventory.add(caught, 1) > 0) this.drops.spawn(caught, 1, this.player.x, this.player.y + 4);
     else gameEvents.emit('item:collected', { itemId: caught, quantity: 1 });

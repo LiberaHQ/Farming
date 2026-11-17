@@ -1,6 +1,6 @@
 import { isStorage, PLACEABLES, SILO_CAPACITY, STORAGE_SIZE, type PlaceableKind } from '../game-config/placeables';
 import { CROPS, type CropId } from '../game-config/crops';
-import { GAME_CONFIG } from '../game-config';
+import { GAME_CONFIG, normalizeAppearance } from '../game-config';
 import { MINE } from '../game-config/activities';
 import { isMachineKind } from '../game-config/machines';
 import { BARN } from '../game-config/livestock';
@@ -360,12 +360,8 @@ export function validateSave(input: unknown, expectedSeed?: string): SaveValidat
                 .map((b) => ({ kind: b.kind, until: int(b.until, 0, 1e9, 'buff.until') })),
             }
           : {}),
-        appearance: {
-          skin: int(appearance.skin, 0, 20, 'appearance.skin'),
-          hair: int(appearance.hair, 0, 20, 'appearance.hair'),
-          shirt: int(appearance.shirt, 0, 20, 'appearance.shirt'),
-          pants: int(appearance.pants, 0, 20, 'appearance.pants'),
-        },
+        // Every part, within its options; a missing (older save) or unknown value is option 0 — never worth refusing a save over.
+        appearance: normalizeAppearance(appearance),
         inventory: {
           slots: arr(inv.slots, GAME_CONFIG.inventory.size, 'inventory.slots').map((v, i) => slot(v, `inventory[${i}]`)),
           selected: int(inv.selected, 0, GAME_CONFIG.inventory.hotbarSize - 1, 'inventory.selected'),
