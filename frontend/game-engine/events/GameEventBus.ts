@@ -162,6 +162,16 @@ export interface GameEventMap {
   'community:state': CommunityProgress;
   /** The freight depot: orders from the towns down the line, and today's remaining trains. */
   'market:state': MarketView;
+  /** The mailbox's seed exchange: your valley's heirlooms, heirloom seeds you carry, and the last parcel you packed. */
+  'seeds:state': {
+    native: Array<{ itemId: ItemId; name: string; seasons: string }>;
+    holding: Array<{ itemId: ItemId; name: string; have: number }>;
+    /** Heirloom varieties you've grown (held) so far, of how many. */
+    grown: number;
+    total: number;
+    sizes: number[];
+    parcel: { code: string; name: string; quantity: number } | null;
+  };
   'freight:state': {
     trains: string[];
     towns: Array<{ name: string; emoji: string; blurb: string; delivered: number; bonus: number }>;
@@ -262,6 +272,9 @@ export interface GameCommandMap {
   'market:sell': { itemId: ItemId; all: boolean };
   'market:barter': { index: number };
   'market:buy': { index: number };
+  /** Seed exchange (at the mailbox): pack heirloom seeds into a parcel code, or open a friend's code. */
+  'seeds:pack': { itemId: ItemId; quantity: number };
+  'seeds:redeem': { code: string };
   'community:donate': { goal: CommunityGoalId; itemId: ItemId };
   'ship:add': { slot: number };
   'equip:wear': { slot: number };

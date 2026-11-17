@@ -120,6 +120,18 @@ import {
   ferryOffers,
   nightMarketOpen,
   type SpiritId,
+  HEIRLOOMS,
+  HEIRLOOM_IDS,
+  HEIRLOOM_STARTER_SEEDS,
+  HEIRLOOM_START_DAY,
+  MAX_REDEEMED_PARCELS,
+  SEED_PARCEL_SIZES,
+  decodeSeedParcel,
+  encodeSeedParcel,
+  heirloomOfSeed,
+  nativeHeirlooms,
+  parcelKey,
+  worldTag,
 } from '@farming/shared';
 import { itemTextureKey, objectTextureKey, repaintPlayer, TEXTURES } from '../assets/registerTextures';
 import { edgeTileInfo, GRASS_VARIANTS, SEASON_EDGES, TILE, TILE_MARGIN, TILE_SPACING, WATER_TILE_INDICES } from '../assets/tileIndex';
@@ -591,6 +603,7 @@ export class WorldScene extends Phaser.Scene {
       shipSlot: (slot) => this.shipSlot(slot),
       openMail: () => {
         this.emitMail();
+        this.emitSeeds();
         this.setPanel('mail');
       },
       openChest: (placed: Placed) => {
@@ -647,6 +660,8 @@ export class WorldScene extends Phaser.Scene {
     const unsubscribe = this.bindCommands();
     const offInventory = gameEvents.on('inventory:changed', (snap) => {
       this.noteFinds(snap.slots);
+      // The seed exchange lists the heirloom seeds you carry.
+      if (this.panel === 'mail') this.emitSeeds();
       if (snap.slots.some((x) => x?.q === 2)) this.social.mark('gold_crop');
     });
     const offFloor = gameEvents.on('mine:floor', (f) => {
@@ -811,6 +826,7 @@ export class WorldScene extends Phaser.Scene {
       this.ghost?.update(this.time_.minute, { x: this.player.x, y: this.player.y }, this.away);
       this.nightMarket?.update(this.marketOpenNow(), this.away, { x: this.player.x, y: this.player.y });
       this.nightMarketNote();
+      this.heirloomLetters();
     }
     this.ambient.update(delta, {
       player: { x: this.player.x, y: this.player.y },
@@ -1450,6 +1466,8 @@ export class WorldScene extends Phaser.Scene {
         if (!this.state.unship(index)) gameEvents.emit('toast', { text: 'Your backpack is full.' });
         this.emitShipping();
       },
+      'seeds:pack': ({ itemId, quantity }) => this.packSeeds(itemId, quantity),
+      'seeds:redeem': ({ code }) => this.redeemSeeds(typeof code === 'string' ? code.slice(0, 64) : ''),
       'market:sell': ({ itemId, all }) => this.marketSell(itemId, all),
       'market:barter': ({ index }) => this.marketBarter(index),
       'market:buy': ({ index }) => this.marketBuy(index),
@@ -2577,6 +2595,8 @@ export class WorldScene extends Phaser.Scene {
   private nightMarket: NightMarketSystem | null = null;
   /** Whose stall the market panel is showing. */
   private marketSpirit: SpiritId = 'wick';
+  /** The last seed parcel packed this session (its code stays on screen to copy). */
+  private lastParcel: { code: string; name: string; quantity: number } | null = null;
   /** Headstones in the graveyard: tile and epitaph index. */
   private graves: Array<{ tx: number; ty: number; epitaph: number }> = [];
 
@@ -3949,6 +3969,92 @@ export class WorldScene extends Phaser.Scene {
       barter: def.shop?.barter ?? [],
       loves: [...def.gifts.loved],
       likes: [...def.gifts.liked],
+    });
+  }
+
+  // ---------- Heirloom seeds ----------
+
+  /** On day 2 (or straight away in an older save) the Seed Library posts the valley's own heirloom seeds. */
+  private heirloomLetters(): void {
+    const h = this.social.heirloom;
+    if (h.intro || this.time_.day < HEIRLOOM_START_DAY) return;
+    h.intro = true;
+    for (const id of nativeHeirlooms(this.seed)) {
+      const crop = CROPS[id];
+      this.social.send(
+        this.time_.day,
+        'Valley Seed Library',
+        `Heirloom seeds: ${crop.name}`,
+        `Every valley keeps a few old varieties of its own, and ${crop.name} is one of yours — ${HEIRLOOMS[id].blurb.toLowerCase()} It grows just like ${CROPS[HEIRLOOMS[id].base].name.toLowerCase()} (${crop.seasons.join(' and ')}), but fetches a far better price. Save seeds when you harvest, and share them: at your mailbox you can pack seeds into a parcel code for a friend, whose valley won't grow this one. — The Seed Library`,
+        { itemId: crop.seedItem, quantity: HEIRLOOM_STARTER_SEEDS },
+      );
+    }
+  }
+
+  /** Pack heirloom seeds from the bag into a parcel code for a friend's world. */
+  private packSeeds(itemId: ItemId, quantity: number): void {
+    if (this.panel !== 'mail') return;
+    const heirloom = heirloomOfSeed(itemId);
+    const inv = this.state.inventory;
+    if (!heirloom || !(SEED_PARCEL_SIZES as readonly number[]).includes(quantity) || inv.count(itemId) < quantity || !inv.remove(itemId, quantity)) {
+      gameEvents.emit('toast', { text: `You need ${quantity} heirloom seeds of one kind to pack a parcel.` });
+      sfx('error');
+      return;
+    }
+    const h = this.social.heirloom;
+    h.sent += 1;
+    const code = encodeSeedParcel({ heirloom, quantity, nonce: h.sent, from: worldTag(this.seed) });
+    this.lastParcel = { code, name: ITEMS[itemId].name, quantity };
+    sfx('place');
+    gameEvents.emit('toast', { text: `🌱 Packed ${quantity} ${ITEMS[itemId].name}. Send the code to a friend!` });
+    this.reportState(true);
+    this.emitSeeds();
+  }
+
+  /** Open a friend's seed parcel by its code (once per parcel, and not one packed in this world). */
+  private redeemSeeds(code: string): void {
+    if (this.panel !== 'mail') return;
+    const toast = (text: string) => gameEvents.emit('toast', { text });
+    const parcel = decodeSeedParcel(code);
+    if (!parcel) {
+      toast("That isn't a seed parcel code. Check it for typos — it starts with HV-.");
+      sfx('error');
+      return;
+    }
+    if (parcel.from === worldTag(this.seed)) {
+      toast('This parcel was packed in this valley. Send it to a friend whose valley grows something else!');
+      sfx('error');
+      return;
+    }
+    const h = this.social.heirloom;
+    const key = parcelKey(parcel);
+    if (h.redeemed.includes(key)) {
+      toast("You've already opened this parcel.");
+      sfx('error');
+      return;
+    }
+    h.redeemed = [...h.redeemed, key].slice(-MAX_REDEEMED_PARCELS);
+    const seed = CROPS[parcel.heirloom].seedItem;
+    const native = nativeHeirlooms(this.seed).includes(parcel.heirloom);
+    this.giveOrDrop(seed, parcel.quantity);
+    sfx('sparkle');
+    toast(`🌱 You open the parcel: ${parcel.quantity} ${ITEMS[seed].name}${native ? '' : ' — a variety your valley has never grown!'}`);
+    this.reportState(true);
+    this.emitSeeds();
+  }
+
+  private emitSeeds(): void {
+    const inv = this.state.inventory;
+    const found = this.collection.foundItems;
+    gameEvents.emit('seeds:state', {
+      native: nativeHeirlooms(this.seed).map((id) => ({ itemId: CROPS[id].harvestItem, name: CROPS[id].name, seasons: CROPS[id].seasons.join(' & ') })),
+      holding: HEIRLOOM_IDS.map((id) => CROPS[id].seedItem)
+        .filter((seed) => inv.count(seed) > 0)
+        .map((seed) => ({ itemId: seed, name: ITEMS[seed].name, have: inv.count(seed) })),
+      grown: HEIRLOOM_IDS.filter((id) => found.has(CROPS[id].harvestItem)).length,
+      total: HEIRLOOM_IDS.length,
+      sizes: [...SEED_PARCEL_SIZES],
+      parcel: this.lastParcel,
     });
   }
 

@@ -1,4 +1,4 @@
-import { CROP_IDS, CROPS } from './crops';
+import { BASE_CROP_IDS, CROPS, HEIRLOOM_IDS } from './crops';
 import { ITEM_IDS, ITEMS, type ItemId } from './items';
 
 /** What achievements are judged on: one player's progress. */
@@ -27,13 +27,16 @@ export interface AchievementDef {
 }
 
 const count = (ctx: AchievementContext, ids: readonly ItemId[]) => ids.filter((id) => ctx.found.has(id)).length;
-const CROP_ITEMS = CROP_IDS.map((c) => CROPS[c].harvestItem as ItemId);
+/** The everyday crops (heirlooms have their own achievement, so Green Thumb stays the same). */
+const CROP_ITEMS = BASE_CROP_IDS.map((c) => CROPS[c].harvestItem as ItemId);
+const HEIRLOOM_ITEMS = HEIRLOOM_IDS.map((c) => CROPS[c].harvestItem as ItemId);
 const FISH = ITEM_IDS.filter((id) => ITEMS[id].category === 'fish');
 const ARTISAN: ItemId[] = ['juice', 'pickles', 'cheese', 'cloth'];
 
 export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'first_harvest', name: 'First Harvest', description: 'Harvest your first crop.', icon: 'turnip', progress: (c) => [Math.min(1, count(c, CROP_ITEMS)), 1] },
   { id: 'green_thumb', name: 'Green Thumb', description: 'Grow every kind of crop.', icon: 'pumpkin', progress: (c) => [count(c, CROP_ITEMS), CROP_ITEMS.length] },
+  { id: 'seed_keeper', name: 'Seed Keeper', description: 'Grow 4 kinds of heirloom crop (your valley only grows two — swap seeds with friends).', icon: 'ghost_pumpkin', progress: (c) => [Math.min(4, count(c, HEIRLOOM_ITEMS)), 4] },
   { id: 'angler', name: 'Angler', description: 'Catch 4 kinds of fish.', icon: 'trout', progress: (c) => [Math.min(4, count(c, FISH)), 4] },
   { id: 'master_angler', name: 'Master Angler', description: 'Catch every fish, river and sea.', icon: 'golden_carp', progress: (c) => [count(c, FISH), FISH.length] },
   { id: 'spelunker', name: 'Spelunker', description: 'Reach floor 10 of the mine.', icon: 'iron_ore', progress: (c) => [Math.min(10, c.mineDepth), 10] },

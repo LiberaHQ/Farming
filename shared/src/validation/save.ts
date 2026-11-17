@@ -19,6 +19,7 @@ import { SAVE_VERSION, type CarnivalSave, type IslandSave, type QuestSave, type 
 import { CARNIVAL_GAME_IDS } from '../game-config/carnival';
 import { FRUIT_TREE_MAX_FRUIT, isFruitTreeKind, isQuality } from '../game-config/orchard';
 import { DAILY_KINDS, type DailyKind, type DailySave } from '../game-config/daily';
+import { MAX_REDEEMED_PARCELS, type HeirloomSave } from '../game-config/heirloom';
 import { FERRY_OFFERS_PER_NIGHT, type NightMarketSave } from '../game-config/nightMarket';
 import { TIDE_BEDS, TIDE_CROPS, isTideCropId, type TidalSave } from '../game-config/tidal';
 import { FREIGHT_MAX_CONTRACTS, FREIGHT_STATUSES, TOWN_IDS, freightUnitPrice, isTownId, type FreightContract, type FreightSave, type FreightStatus } from '../game-config/freight';
@@ -210,6 +211,15 @@ function nightMarket(v: Record<string, unknown>): NightMarketSave {
   };
 }
 
+function heirloom(v: Record<string, unknown>): HeirloomSave {
+  const redeemed = Array.isArray(v.redeemed) ? v.redeemed.filter((k): k is string => typeof k === 'string' && /^\d{1,10}:\d{1,10}$/.test(k)) : [];
+  return {
+    ...(v.intro === true ? { intro: true } : {}),
+    sent: int(v.sent ?? 0, 0, 1e9, 'social.heirloom.sent'),
+    redeemed: [...new Set(redeemed)].slice(-MAX_REDEEMED_PARCELS),
+  };
+}
+
 function social(v: unknown): SocialSave | undefined {
   if (v === undefined || v === null) return undefined;
   if (!isObj(v)) return fail('social must be an object');
@@ -254,6 +264,7 @@ function social(v: unknown): SocialSave | undefined {
     ...(isObj(v.freight) ? { freight: freight(v.freight) } : {}),
     ...(isObj(v.tidal) ? { tidal: tidal(v.tidal) } : {}),
     ...(isObj(v.nightMarket) ? { nightMarket: nightMarket(v.nightMarket) } : {}),
+    ...(isObj(v.heirloom) ? { heirloom: heirloom(v.heirloom) } : {}),
     ...(isObj(v.horse) && typeof v.horse.name === 'string'
       ? { horse: { name: v.horse.name.trim().slice(0, 16) || 'Clover', x: int(Math.round(Number(v.horse.x) || 0), 0, 100_000, 'horse.x'), y: int(Math.round(Number(v.horse.y) || 0), 0, 100_000, 'horse.y') } }
       : {}),

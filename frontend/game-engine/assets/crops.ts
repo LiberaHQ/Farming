@@ -1,7 +1,8 @@
-import type { CropId } from '@farming/shared';
+import { CROPS, HEIRLOOMS, type CropId } from '@farming/shared';
 import { cropArt } from './items';
 import { P } from './palette';
 import { PixelCanvas } from './PixelCanvas';
+import { colorize } from './recolor';
 import { drawRipePlant, PRODUCE } from './produce';
 
 /** 16x16 crop sprites, one per growth stage, standing on row 14. */
@@ -61,6 +62,13 @@ function mature(p: PixelCanvas, crop: CropId): void {
 }
 
 export function drawCropStage(crop: CropId, stage: number, matureStage: number): PixelCanvas {
+  // Heirlooms grow like their everyday cousin and only look different once ripe.
+  const base = CROPS[crop].heirloomOf;
+  if (base) {
+    const art = drawCropStage(base, stage, matureStage);
+    if (stage >= matureStage) colorize(art, HEIRLOOMS[crop as keyof typeof HEIRLOOMS].look);
+    return art;
+  }
   const p = new PixelCanvas(16, 16);
   if (stage === 0) {
     seeds(p);

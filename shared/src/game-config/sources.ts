@@ -59,7 +59,10 @@ const BASICS: Partial<Record<ItemId, string>> = {
 export function whereToGet(itemId: ItemId): string {
   if (BASICS[itemId]) return BASICS[itemId]!;
   const crop = CROP_IDS.find((c) => CROPS[c].harvestItem === itemId);
+  if (crop && CROPS[crop].heirloomOf) return 'grow it from heirloom seeds (your valley\'s own, saved at harvest, or a friend\'s seed parcel)';
   if (crop) return `grow it (seeds from Mira)`;
+  const heirloomSeed = CROP_IDS.find((c) => CROPS[c].heirloomOf && CROPS[c].seedItem === itemId);
+  if (heirloomSeed) return 'the Valley Seed Library, saving seeds at harvest, or a friend\'s seed parcel';
   if (FISH.some((f) => f.itemId === itemId)) return (() => { const w = FISH.find((f) => f.itemId === itemId)?.water; return w === 'ocean' ? 'fish at the beach' : w === 'island' ? 'fish around the island' : 'go fishing'; })();
   if (Object.values(FORAGE).some((list) => list.includes(itemId))) return 'forage in the forest';
   for (const id of NPC_IDS) {

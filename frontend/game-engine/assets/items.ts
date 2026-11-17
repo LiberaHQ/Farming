@@ -5,7 +5,8 @@ import { PixelCanvas } from './PixelCanvas';
 import { drawFruitIcon, drawSaplingIcon } from './orchard';
 import { produceIcon, PRODUCE, seedPicture } from './produce';
 import { drawFurniture } from './interior';
-import { FURNITURE_KINDS } from '@farming/shared';
+import { CROPS, FURNITURE_KINDS, HEIRLOOMS, HEIRLOOM_IDS } from '@farming/shared';
+import { colorize, heirloomStar } from './recolor';
 
 /**
  * 16x16 item icons. Pure drawing code (no Phaser), so the same art is used
@@ -1194,6 +1195,21 @@ const DRAW = {
     p.rect(6, 9, 4, 5, '#f3ead8');
   },
 } as Record<ItemId, (p: PixelCanvas) => void>;
+
+// Heirloom crops and their seed packets: their everyday cousin's icon, recoloured (packets get a gold star).
+for (const id of HEIRLOOM_IDS) {
+  const base = CROPS[HEIRLOOMS[id].base];
+  const look = HEIRLOOMS[id].look;
+  DRAW[CROPS[id].harvestItem] = (p) => {
+    DRAW[base.harvestItem](p);
+    colorize(p, look);
+  };
+  DRAW[CROPS[id].seedItem] = (p) => {
+    DRAW[base.seedItem](p);
+    colorize(p, look);
+    heirloomStar(p);
+  };
+}
 
 /** An icon made by shrinking a world sprite into 16x16 (nearest pixel). */
 function fromSprite(src: PixelCanvas): (p: PixelCanvas) => void {

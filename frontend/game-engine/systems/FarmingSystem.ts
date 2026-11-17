@@ -1,7 +1,7 @@
 import * as Phaser from 'phaser';
 import { skills } from '../state/skills';
 import { daily } from '../state/daily';
-import { CROPS, GAME_CONFIG, Terrain, rollQuality, type CropId, type PlotSave, type Season } from '@farming/shared';
+import { CROPS, GAME_CONFIG, HEIRLOOM_SEED_CHANCE, Terrain, rollQuality, type CropId, type PlotSave, type Season } from '@farming/shared';
 import { cropTextureKey } from '../assets/registerTextures';
 import { TILE } from '../assets/tileIndex';
 import { DEPTH } from '../constants';
@@ -162,6 +162,8 @@ export class FarmingSystem {
       this.drops.spawn(def.harvestItem, Phaser.Math.Between(def.yield[0], def.yield[1]) + (this.lucky() && Math.random() < 0.5 ? 1 : 0) + (skills.bonus('farming') ? 1 : 0), x, y, q);
       skills.gain('farming', 7);
       daily.note('harvest');
+      // Heirlooms are open-pollinated: now and then a harvest gives a seed back.
+      if (def.heirloomOf && Math.random() < HEIRLOOM_SEED_CHANCE) this.drops.spawn(def.seedItem, 1, x, y - 2);
     }
     this.fx.burst('leaf', x, y - 2, 8);
     sfx('harvest');

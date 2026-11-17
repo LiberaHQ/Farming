@@ -3,6 +3,21 @@
 A browser-based, top-down 2D sandbox adventure: farming, exploration, gathering, crafting and building.
 **Current state: Phase 5 + two big content updates** — co-op multiplayer over Socket.IO (shared worlds the server is in charge of, synced movement, chat, trading, co-op farming, host migration), accounts, profiles and cloud saves in PostgreSQL, and a game with days and seasons, weather, building, a village market of five merchants with schedules, festivals, heart events and mail, a 30-floor mine with combat, 11 crops, a greenhouse and artisan machines, a barn with cows and sheep, a beach, a cottage you furnish, community projects, a collection with achievements, settings for keys, UI size, day length, gamepads and touch screens — and now a story, villager requests and first-day tips, a shipping bin with a morning report, food buffs, a fishing minigame and crab pots, mine bosses and treasure, rings and armour, an old forest with a hermit, pets, romance and marriage, silos, wells, sheds, ducks and rabbits, decorations and automation, a cottage that comes furnished (with displays for your best fish, food and gems), public co-op games, friends, cabins, a shared wallet, and emotes.
 
+## Heirloom seeds
+
+- **Eleven heirloom varieties** (`HEIRLOOMS` in `shared/src/game-config/crops.ts`, rules and parcel codes in
+  `heirloom.ts`): a rare-coloured cousin of every crop (Moonlight Turnip, Ghost Pumpkin, Black Tomato, Glass Gem
+  Corn…). Each grows exactly like its everyday crop but sells for 1.6×. Art is the base crop recoloured
+  (`assets/recolor.ts`); seed packets carry a gold star.
+- **Every world grows two natively** (fixed by its seed). The Valley Seed Library posts 5 seeds of each on day 2,
+  and every heirloom harvest has a 35% chance to give a seed back.
+- **Sharing:** in co-op, trade seeds like any item. Between worlds, the mailbox's **🌱 Seed exchange** tab packs
+  5 or 10 heirloom seeds into a code (`HV-XXXXXXX-XXXXXXX-XXXXXXX`) for a friend to open in their own mailbox.
+  Packing uses up the seeds; a checksum rejects typos and made-up codes; each parcel opens once per world, and
+  never in the world that packed it.
+- New achievement **Seed Keeper** (grow 4 heirloom kinds); Green Thumb still counts only the 11 everyday crops.
+  Saved per player in `SocialSave.heirloom`.
+
 ## The ghost night market
 
 - **Once Elsie is at rest** (`shared/src/game-config/nightMarket.ts`, `systems/NightMarketSystem.ts`,

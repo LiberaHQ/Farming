@@ -19,6 +19,8 @@ import {
   TIDE_BEDS,
   freshTidal,
   freshNightMarket,
+  freshHeirloom,
+  type HeirloomSave,
   type NightMarketSave,
   type TidalSave,
 } from '@farming/shared';
@@ -83,6 +85,8 @@ export class Social {
   tidal: TidalSave = freshTidal();
   /** The ghost night market: its note, and the ferryman's goods bought tonight. */
   nightMarket: NightMarketSave = freshNightMarket();
+  /** Heirloom seeds: the starter letters, parcels packed and parcels opened. */
+  heirloom: HeirloomSave = freshHeirloom();
 
   /** Marks a guide step done; true the first time. */
   mark(id: string): boolean {
@@ -331,6 +335,7 @@ export class Social {
       trainsSeen: this.trainsSeen,
       tidal: structuredClone(this.tidal),
       nightMarket: structuredClone(this.nightMarket),
+      heirloom: structuredClone(this.heirloom),
     };
   }
 
@@ -364,6 +369,7 @@ export class Social {
     this.trainsSeen = 0;
     this.tidal = freshTidal();
     this.nightMarket = freshNightMarket();
+    this.heirloom = freshHeirloom();
     if (!save) return;
     if (save.petStay) this.petStay = structuredClone(save.petStay);
     this.milestones = new Set(save.milestones ?? []);
@@ -371,6 +377,7 @@ export class Social {
     this.meteorDay = save.meteorDay ?? 0;
     this.ghost = save.ghost ? { ...save.ghost } : { stage: 0, asked: false };
     this.trainsSeen = save.trainsSeen ?? 0;
+    if (save.heirloom) this.heirloom = { ...(save.heirloom.intro ? { intro: true } : {}), sent: save.heirloom.sent, redeemed: [...save.heirloom.redeemed] };
     if (save.nightMarket) this.nightMarket = { ...(save.nightMarket.intro ? { intro: true } : {}), day: save.nightMarket.day, bought: [...save.nightMarket.bought] };
     if (save.tidal) this.tidal = { beds: Array.from({ length: TIDE_BEDS }, (_, i) => (save.tidal!.beds[i] ? { ...save.tidal!.beds[i]! } : null)) };
     if (save.island) this.island = { ...structuredClone(save.island), plots: Array.from({ length: ISLAND_PLOTS }, (_, i) => save.island!.plots[i] ?? null) };

@@ -9,6 +9,7 @@ import type { DailySave } from '../game-config/daily';
 import type { FreightSave } from '../game-config/freight';
 import type { TidalSave } from '../game-config/tidal';
 import type { NightMarketSave } from '../game-config/nightMarket';
+import type { HeirloomSave } from '../game-config/heirloom';
 
 import type { Letter } from '../game-config/village';
 import type { InteriorSave } from '../game-config/interior';
@@ -167,6 +168,8 @@ export interface SocialSave {
   tidal?: TidalSave;
   /** The ghost night market: its introduction, and the ferryman's goods bought tonight. */
   nightMarket?: NightMarketSave;
+  /** Heirloom seeds: the starter letter, parcels packed, and parcels opened. */
+  heirloom?: HeirloomSave;
 }
 
 export interface IslandSave {

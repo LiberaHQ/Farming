@@ -1,4 +1,7 @@
-import type { CropId } from './crops';
+import { CROPS, HEIRLOOMS, HEIRLOOM_IDS, type CropId, type HeirloomId } from './crops';
+
+/** Heirloom crops sell for this much more than their everyday cousin. */
+export const HEIRLOOM_PRICE = 1.6;
 import type { PlaceableKind } from './placeables';
 import type { FurnitureKind } from './interior';
 
@@ -194,9 +197,34 @@ export const ITEM_IDS = [
   'wisp_tea',
   'moon_bloom',
   'phantom_ring',
+  'moonlight_turnip',
+  'moonlight_turnip_seeds',
+  'ember_carrot',
+  'ember_carrot_seeds',
+  'ghost_pumpkin',
+  'ghost_pumpkin_seeds',
+  'blush_strawberry',
+  'blush_strawberry_seeds',
+  'violet_potato',
+  'violet_potato_seeds',
+  'black_tomato',
+  'black_tomato_seeds',
+  'glass_corn',
+  'glass_corn_seeds',
+  'red_wheat',
+  'red_wheat_seeds',
+  'pink_blueberry',
+  'pink_blueberry_seeds',
+  'graffiti_eggplant',
+  'graffiti_eggplant_seeds',
+  'golden_yam',
+  'golden_yam_seeds',
 ] as const;
 
 export type ItemId = (typeof ITEM_IDS)[number];
+
+/** Heirloom seeds and crops (generated from the everyday crops). */
+export type HeirloomItemId = HeirloomId | `${HeirloomId}_seeds`;
 
 /** Food bonuses: walk faster, hit rocks harder, easier fishing, more from each harvest. */
 export type BuffKind = 'speed' | 'mining' | 'fishing' | 'luck';
@@ -240,7 +268,7 @@ export interface ItemDef {
   unlockAtEarnings?: number;
 }
 
-export const ITEMS: Record<ItemId, ItemDef> = {
+const BASE_ITEMS: Record<Exclude<ItemId, HeirloomItemId>, ItemDef> = {
   axe: {
     id: 'axe',
     name: 'Axe',
@@ -610,6 +638,39 @@ export const ITEMS: Record<ItemId, ItemDef> = {
   golden_idol: { id: 'golden_idol', name: 'Golden Idol', description: 'An artifact. The treasure of the island cave.', category: 'artifact', maxStack: 99, sellPrice: 1200 },
   carnival_trophy: { id: 'carnival_trophy', name: 'Carnival Trophy', description: 'The grand prize. Proof you are the best at the carnival. Place it inside.', category: 'furniture', maxStack: 9, sellPrice: 150, furniture: 'carnival_trophy' },
 };
+
+/** Heirloom seeds and crops: built from their everyday cousin, worth a good deal more. */
+function heirloomItems(): Record<HeirloomItemId, ItemDef> {
+  const out = {} as Record<HeirloomItemId, ItemDef>;
+  for (const id of HEIRLOOM_IDS) {
+    const h = HEIRLOOMS[id];
+    const base = CROPS[h.base];
+    const crop = BASE_ITEMS[base.harvestItem as Exclude<ItemId, HeirloomItemId>];
+    const seed = BASE_ITEMS[base.seedItem as Exclude<ItemId, HeirloomItemId>];
+    const seasons = base.seasons.join(' and ');
+    out[`${id}_seeds`] = {
+      id: `${id}_seeds`,
+      name: `${h.name} Seeds`,
+      description: `Heirloom seeds — ${h.blurb} Plant in ${seasons}; it grows like ${crop.name.toLowerCase()}. Harvests sometimes give a seed back, and you can pack seeds into a parcel for a friend at the mailbox.`,
+      category: 'seed',
+      maxStack: 99,
+      sellPrice: (seed.sellPrice ?? 5) * 2,
+      plants: id,
+    };
+    out[id] = {
+      id,
+      name: h.name,
+      description: `An heirloom ${crop.name.toLowerCase()}. ${h.blurb}`,
+      category: 'crop',
+      maxStack: 99,
+      sellPrice: Math.round(((crop.sellPrice ?? 0) * HEIRLOOM_PRICE) / 5) * 5,
+      ...(crop.energy !== undefined ? { energy: crop.energy } : {}),
+    };
+  }
+  return out;
+}
+
+export const ITEMS: Record<ItemId, ItemDef> = { ...BASE_ITEMS, ...heirloomItems() };
 
 export function isItemId(value: unknown): value is ItemId {
   return typeof value === 'string' && (ITEM_IDS as readonly string[]).includes(value);

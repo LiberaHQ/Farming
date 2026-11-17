@@ -1399,6 +1399,49 @@ a.btn {
   grid-template-columns: 1fr auto;
 }
 
+/* ---------- Heirloom seed exchange ---------- */
+
+.seed-exchange h3 {
+  margin: 12px 0 6px;
+  font-size: 13px;
+}
+
+.seed-code {
+  margin-top: 8px;
+}
+
+.seed-code-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.seed-code-row code {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  background: rgba(246, 239, 224, 0.08);
+  border: 1px dashed var(--muted, #cdbf9f);
+  border-radius: 3px;
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.seed-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  text-transform: uppercase;
+  color: inherit;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--muted, #cdbf9f);
+  border-radius: 3px;
+}
+
 /* ---------- Ghost night market ---------- */
 
 .market-greeting {
