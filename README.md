@@ -1,4 +1,4 @@
-# Valley
+# Harvest Valley
 
 A browser-based, top-down 2D sandbox adventure: farming, exploration, gathering, crafting and building.
 **Current state: Phase 5 + two big content updates** — co-op multiplayer over Socket.IO (shared worlds the server is in charge of, synced movement, chat, trading, co-op farming, host migration), accounts, profiles and cloud saves in PostgreSQL, and a game with days and seasons, weather, building, a village market of five merchants with schedules, festivals, heart events and mail, a 30-floor mine with combat, 11 crops, a greenhouse and artisan machines, a barn with cows and sheep, a beach, a cottage you furnish, community projects, a collection with achievements, settings for keys, UI size, day length, gamepads and touch screens — and now a story, villager requests and first-day tips, a shipping bin with a morning report, food buffs, a fishing minigame and crab pots, mine bosses and treasure, rings and armour, an old forest with a hermit, pets, romance and marriage, silos, wells, sheds, ducks and rabbits, decorations and automation, a cottage that comes furnished (with displays for your best fish, food and gems), public co-op games, friends, cabins, a shared wallet, and emotes.
@@ -252,7 +252,7 @@ Fortune, a treat cart, and Pip the barker at the ticket booth.
 
 ## Homepage, docs and indoor decor
 
-- **Valley homepage** (`/`) and **docs** (`/docs`), in the game's colours. Every sprite is drawn live by the
+- **Harvest Valley homepage** (`/`) and **docs** (`/docs`), in the game's colours. Every sprite is drawn live by the
   same code as the game (`frontend/components/site/catalog.ts` lists them; add new art there too). Only two
   buttons: Play (→ `/start`) and Docs.
 - **Indoor decor:** flower pots, flower beds, statues, gnomes, birdbaths, benches and lamp posts can be placed
@@ -302,8 +302,8 @@ storing data in `backend/.data/pglite/`. Tables are created automatically on fir
 
 | Route | What it is |
 | --- | --- |
-| `/` | Homepage: the Valley logo, a living pixel diorama, **Play** and **Docs**, and every sprite in the game (villagers, animals, mine, nature by season, crops by stage, buildings, machines, decor, furniture, tiles and all items) |
-| `/docs` | The Valley handbook: controls, and every role in the game — you and your trades, co-op host/guest/leader, each villager (hours, stock, gifts, favours), animals and pets, mine monsters and bosses, friendship and romance. Built from the game data, so it stays current |
+| `/` | Homepage: the Harvest Valley logo, a living pixel diorama, **Play** and **Docs**, and every sprite in the game (villagers, animals, mine, nature by season, crops by stage, buildings, machines, decor, furniture, tiles and all items) |
+| `/docs` | The Harvest Valley handbook: controls, and every role in the game — you and your trades, co-op host/guest/leader, each villager (hours, stock, gifts, favours), animals and pets, mine monsters and bosses, friendship and romance. Built from the game data, so it stays current |
 | `/start` | Title screen: account, your worlds (cloud + this browser) with Export, import a save file, start a new world |
 | `/play?seed=name` | The game. Each world name is its own map and its own save |
 | `/play?seed=name&host=1` | Open that world to friends (co-op host) |

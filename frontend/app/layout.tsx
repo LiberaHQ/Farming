@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Valley',
-  description: 'Valley — a cozy pixel farming sandbox: farm, fish, mine, craft and build, alone or with friends.',
+  title: 'Harvest Valley',
+  description: 'Harvest Valley — a cozy pixel farming sandbox: farm, fish, mine, craft and build, alone or with friends.',
 };
 
 export const viewport: Viewport = {

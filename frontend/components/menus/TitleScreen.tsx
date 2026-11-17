@@ -106,7 +106,7 @@ export function TitleScreen() {
     <main className="menu-page">
       <MenuNav />
       <header className="title">
-        <h1>Valley</h1>
+        <h1>Harvest Valley</h1>
         <p className="hud-muted">Farm, gather, craft and build in a cosy pixel world.</p>
       </header>
 

@@ -5,7 +5,7 @@ import { cleanSeed } from '@/services/api';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-export const metadata = { title: 'Playing — Valley' };
+export const metadata = { title: 'Playing — Harvest Valley' };
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 

@@ -3,28 +3,41 @@
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
 
-/** "VALLEY" in chunky pixel letters, drawn the same way as the game's art. */
+/** "HARVEST VALLEY" in chunky pixel letters, drawn the same way as the game's art. */
 const GLYPHS: Record<string, string[]> = {
-  V: ['10001', '10001', '10001', '10001', '01010', '01010', '00100'],
   A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
-  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
   E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
+  H: ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
+  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
+  R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
+  S: ['01111', '10000', '10000', '01110', '00001', '00001', '11110'],
+  T: ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
+  V: ['10001', '10001', '10001', '10001', '01010', '01010', '00100'],
   Y: ['10001', '10001', '01010', '00100', '00100', '00100', '00100'],
 };
 
-export function PixelLogo({ text = 'VALLEY', scale = 8, className }: { text?: string; scale?: number; className?: string }) {
+/** Rows between lines of a multi-line logo: room for the upper line's shadow and the lower line's outline. */
+const LINE_GAP = 3;
+
+/** The logo, one line per "\n" in `text`, each line centred. */
+export function PixelLogo({ text = 'HARVEST\nVALLEY', scale = 8, className }: { text?: string; scale?: number; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  const letters = text.split('');
+  const lines = text.split('\n');
+  const cols = Math.max(...lines.map((line) => line.length));
   // 1px outline all round, 2px shadow below, 1px gap between letters.
-  const w = letters.length * 6 - 1 + 2;
-  const h = 7 + 2 + 2;
+  const w = cols * 6 - 1 + 2;
+  const h = lines.length * 7 + (lines.length - 1) * LINE_GAP + 2 + 2;
 
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const fill = new Set<string>();
-    letters.forEach((ch, i) => {
-      (GLYPHS[ch] ?? []).forEach((row, y) => [...row].forEach((bit, x) => bit === '1' && fill.add(`${1 + i * 6 + x},${1 + y}`)));
+    lines.forEach((line, li) => {
+      const left = 1 + Math.floor(((cols - line.length) * 6) / 2);
+      const top = 1 + li * (7 + LINE_GAP);
+      [...line].forEach((ch, i) => {
+        (GLYPHS[ch] ?? []).forEach((row, y) => [...row].forEach((bit, x) => bit === '1' && fill.add(`${left + i * 6 + x},${top + y}`)));
+      });
     });
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -48,14 +61,14 @@ export function PixelLogo({ text = 'VALLEY', scale = 8, className }: { text?: st
     }
   }, [text, scale]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <canvas ref={ref} className={['pixel-logo', className].filter(Boolean).join(' ')} width={w * scale} height={h * scale} role="img" aria-label={text} />;
+  return <canvas ref={ref} className={['pixel-logo', className].filter(Boolean).join(' ')} width={w * scale} height={h * scale} role="img" aria-label={lines.join(' ')} />;
 }
 
 /** Top bar shared by the homepage and the docs: the name, Play and Docs. */
 export function SiteHeader({ current }: { current?: 'docs' }) {
   return (
     <header className="site-header">
-      <Link href="/" className="site-brand" aria-label="Valley home">
+      <Link href="/" className="site-brand" aria-label="Harvest Valley home">
         <PixelLogo scale={3} />
       </Link>
       <nav className="site-actions">

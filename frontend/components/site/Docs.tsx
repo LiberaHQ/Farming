@@ -114,7 +114,7 @@ export function Docs() {
 
         <article className="docs-body">
           <header className="docs-title">
-            <h1>The Valley handbook</h1>
+            <h1>The Harvest Valley handbook</h1>
             <p>Who lives in the valley, what everyone does, and how you fit in.</p>
           </header>
 

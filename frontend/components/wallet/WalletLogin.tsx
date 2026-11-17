@@ -58,7 +58,7 @@ const connectors = connectorsForWallets(
           : [coinbaseWallet, injectedWallet],
     },
   ],
-  { appName: 'Valley', projectId: projectId || 'valley-no-walletconnect' },
+  { appName: 'Harvest Valley', projectId: projectId || 'valley-no-walletconnect' },
 );
 
 const wagmiConfig = createConfig({
@@ -115,7 +115,7 @@ export function WalletLogin(props: WalletLoginProps) {
           createSiweMessage({
             domain: window.location.host,
             address,
-            statement: 'Sign in to Valley. This only proves you own this wallet — it costs nothing and sends no transaction.',
+            statement: 'Sign in to Harvest Valley. This only proves you own this wallet — it costs nothing and sends no transaction.',
             uri: window.location.origin,
             version: '1',
             chainId,
@@ -147,7 +147,7 @@ export function WalletLogin(props: WalletLoginProps) {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitAuthenticationProvider adapter={adapter} status={status}>
-          <RainbowKitProvider theme={theme} modalSize="compact" appInfo={{ appName: 'Valley' }}>
+          <RainbowKitProvider theme={theme} modalSize="compact" appInfo={{ appName: 'Harvest Valley' }}>
             <WalletButton signedIn={props.signedIn} label={props.label} className={props.className} />
           </RainbowKitProvider>
         </RainbowKitAuthenticationProvider>
@@ -181,7 +181,7 @@ function WalletButton({ signedIn, label = '🦊 Sign in with wallet', className 
         if (!ready) return <button type="button" className={className} disabled>{label}</button>;
         if (account && rkChain?.unsupported) {
           return (
-            <button type="button" className={className} onClick={openChainModal} title="Your wallet is on a network Valley doesn't know">
+            <button type="button" className={className} onClick={openChainModal} title="Your wallet is on a network Harvest Valley doesn't know">
               🦊 Switch network to sign in
             </button>
           );
