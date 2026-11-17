@@ -206,9 +206,8 @@ export class VillagerHomeScene extends AreaScene<HomeSceneData> {
 
   private bubble(text: string): void {
     const label = this.add
-      .text(this.villager.x, this.villager.y - 24, text, { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '5px', color: '#3a2a20', align: 'center', wordWrap: { width: 80 }, backgroundColor: '#fff8e8', padding: { x: 3, y: 2 } })
+      .text(this.villager.x, this.villager.y - 24, text, { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '5px', color: '#3a2a20', align: 'center', wordWrap: { width: 80 }, backgroundColor: '#fff8e8', padding: { x: 3, y: 2 }, resolution: 6 })
       .setOrigin(0.5, 1)
-      .setResolution(6)
       .setDepth(DEPTH.fx);
     this.tweens.add({ targets: label, alpha: 0, delay: 3200, duration: 400, onComplete: () => label.destroy() });
   }

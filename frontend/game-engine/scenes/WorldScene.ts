@@ -2182,9 +2182,8 @@ export class WorldScene extends Phaser.Scene {
       const midY = baseY - 45 + 4.5;
       const depth = DEPTH.ySortBase + baseY + 0.5;
       const text = this.add
-        .text(x + 4, midY, sign.text, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '6px', fontStyle: 'bold', color: sign.color })
+        .text(x + 4, midY, sign.text, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '6px', fontStyle: 'bold', color: sign.color, resolution: 8 })
         .setOrigin(0.5, 0.5)
-        .setResolution(8)
         .setDepth(depth);
       // Fit between the icon and the board's right edge.
       text.setScale(Math.min(1, 24 / text.width));
@@ -2242,9 +2241,8 @@ export class WorldScene extends Phaser.Scene {
     const sy = baseY + 2 * size - 4;
     this.add.image(sx, sy, TEXTURES.signpost).setOrigin(0.5, 1).setDepth(DEPTH.ySortBase + sy);
     this.add
-      .text(sx, sy - 20, '⛏ MINE', { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '6px', fontStyle: 'bold', color: '#fff1a8', stroke: '#2b1d1a', strokeThickness: 3 })
+      .text(sx, sy - 20, '⛏ MINE', { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '6px', fontStyle: 'bold', color: '#fff1a8', stroke: '#2b1d1a', strokeThickness: 3, resolution: 8 })
       .setOrigin(0.5, 1)
-      .setResolution(8)
       .setDepth(DEPTH.ySortBase + sy + 1);
   }
 
@@ -2338,9 +2336,8 @@ export class WorldScene extends Phaser.Scene {
     };
     const label = (x: number, y: number, text: string, px: number, color: string, depth: number) =>
       this.add
-        .text(x, y, text, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: `${px}px`, fontStyle: 'bold', color, stroke: '#2b1d1a', strokeThickness: 3 })
+        .text(x, y, text, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: `${px}px`, fontStyle: 'bold', color, stroke: '#2b1d1a', strokeThickness: 3, resolution: 8 })
         .setOrigin(0.5, 1)
-        .setResolution(8)
         .setDepth(depth);
     const arch = this.carnivalGate();
     const cx = (arch.tx + 0.5) * size;
@@ -2664,9 +2661,8 @@ export class WorldScene extends Phaser.Scene {
     };
     const label = (x: number, y: number, text: string, depth: number, px = 5) =>
       this.add
-        .text(x, y, text, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: `${px}px`, fontStyle: 'bold', color: '#fff1a8', stroke: '#2b1d1a', strokeThickness: 3 })
+        .text(x, y, text, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: `${px}px`, fontStyle: 'bold', color: '#fff1a8', stroke: '#2b1d1a', strokeThickness: 3, resolution: 8 })
         .setOrigin(0.5, 1)
-        .setResolution(8)
         .setDepth(depth);
     const solid = (tx: number, ty: number, w: number, h: number) => {
       const zone = this.add.zone(tx * size + (w * size) / 2, (ty - h + 1) * size + (h * size) / 2 + 2, w * size - 2, h * size - 4);

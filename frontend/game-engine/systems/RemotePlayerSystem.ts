@@ -140,8 +140,8 @@ export class RemotePlayerSystem {
         color: '#fff8e8',
         stroke: '#2a1d14',
         strokeThickness: 1.5,
+        resolution: 6,
       })
-      .setResolution(6)
       .setOrigin(0.5, 1)
       .setDepth(DEPTH.fx - 2);
     const tool = this.scene.add.image(m.x, m.y, TEXTURES.sparkle).setOrigin(0.55, 0.9).setVisible(false);

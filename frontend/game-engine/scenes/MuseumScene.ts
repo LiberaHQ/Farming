@@ -249,9 +249,8 @@ export class MuseumScene extends AreaScene<MuseumSceneData> {
 
   private label(x: number, y: number, text: string, size = '5px'): void {
     this.add
-      .text(x, y, text, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: size, fontStyle: 'bold', color: '#3a2a20', backgroundColor: '#f4ead2', padding: { x: 2, y: 1 } })
+      .text(x, y, text, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: size, fontStyle: 'bold', color: '#3a2a20', backgroundColor: '#f4ead2', padding: { x: 2, y: 1 }, resolution: 8 })
       .setOrigin(0.5, 0)
-      .setResolution(8)
       .setDepth(DEPTH.ySortBase + 13 * T);
   }
 

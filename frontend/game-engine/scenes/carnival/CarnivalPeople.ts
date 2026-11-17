@@ -260,8 +260,7 @@ export class CarnivalPeople {
 
   private makeBubble(text: string): Phaser.GameObjects.Container {
     const label = this.scene.add
-      .text(0, 0, text, { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '5px', color: '#3a2a20', align: 'center', wordWrap: { width: 70 } })
-      .setResolution(6)
+      .text(0, 0, text, { fontFamily: '"Trebuchet MS", Verdana, sans-serif', fontSize: '5px', color: '#3a2a20', align: 'center', wordWrap: { width: 70 }, resolution: 6 })
       .setOrigin(0.5, 1);
     const w = Math.ceil(label.width) + 6;
     const h = Math.ceil(label.height) + 3;

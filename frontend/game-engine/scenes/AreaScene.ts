@@ -99,9 +99,8 @@ export abstract class AreaScene<D extends { host: AreaHost }> extends Phaser.Sce
   protected spot(id: WildlifeId, x: number, y: number): void {
     if (!this.host.spot?.(id)) return;
     const label = this.add
-      .text(x, y - 14, `${WILDLIFE[id].emoji} spotted!`, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '7px', fontStyle: 'bold', color: '#fff1a8', stroke: '#2b1d1a', strokeThickness: 3 })
+      .text(x, y - 14, `${WILDLIFE[id].emoji} spotted!`, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '7px', fontStyle: 'bold', color: '#fff1a8', stroke: '#2b1d1a', strokeThickness: 3, resolution: 8 })
       .setOrigin(0.5, 1)
-      .setResolution(8)
       .setDepth(DEPTH.lighting + 5);
     this.tweens.add({ targets: label, y: label.y - 12, alpha: 0, delay: 1400, duration: 900, onComplete: () => label.destroy() });
     sfx('pickup');

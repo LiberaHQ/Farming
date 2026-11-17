@@ -264,9 +264,8 @@ export class CarnivalScene extends AreaScene<CarnivalSceneData> {
   /** A sign over a booth. */
   private sign(text: string, x: number, y: number, depth: number, color = '#f4d24a'): void {
     this.add
-      .text(x, y, text, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '7px', fontStyle: 'bold', color, stroke: '#2b1d1a', strokeThickness: 3 })
+      .text(x, y, text, { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '7px', fontStyle: 'bold', color, stroke: '#2b1d1a', strokeThickness: 3, resolution: 8 })
       .setOrigin(0.5, 1)
-      .setResolution(8)
       .setDepth(depth);
   }
 

@@ -31,6 +31,16 @@ const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '';
 const hasWalletConnect = projectId.length > 0;
 
 /**
+ * RainbowKit's MetaMask entry uses the extension when it's installed and falls
+ * back to WalletConnect when it isn't. Without a real project id that fallback
+ * can't work: it only keeps reconnecting to the WalletConnect relay (rejected
+ * with "Project not found") every few seconds. So without WalletConnect, MetaMask
+ * is listed only when its extension is present.
+ */
+const hasMetaMaskExtension =
+  typeof window !== 'undefined' && Boolean((window as unknown as { ethereum?: { isMetaMask?: boolean } }).ethereum?.isMetaMask);
+
+/**
  * Signing in works on any of these networks (the chain id only goes into the
  * signed message). RainbowKit refuses to sign on a network it doesn't know, so
  * the list is broad, and a wallet on anything else is asked to switch.
@@ -41,7 +51,11 @@ const connectors = connectorsForWallets(
   [
     {
       groupName: 'Popular',
-      wallets: hasWalletConnect ? [metaMaskWallet, coinbaseWallet, rainbowWallet, walletConnectWallet] : [metaMaskWallet, coinbaseWallet, injectedWallet],
+      wallets: hasWalletConnect
+        ? [metaMaskWallet, coinbaseWallet, rainbowWallet, walletConnectWallet]
+        : hasMetaMaskExtension
+          ? [metaMaskWallet, coinbaseWallet, injectedWallet]
+          : [coinbaseWallet, injectedWallet],
     },
   ],
   { appName: 'Valley', projectId: projectId || 'valley-no-walletconnect' },

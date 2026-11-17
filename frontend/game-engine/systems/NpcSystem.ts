@@ -328,8 +328,8 @@ export class NpcSystem {
         color: '#3a2a20',
         align: 'center',
         wordWrap: { width: 70 },
+        resolution: 6,
       })
-      .setResolution(6)
       .setOrigin(0.5, 1);
     const w = Math.ceil(label.width) + 6;
     const h = Math.ceil(label.height) + 3;

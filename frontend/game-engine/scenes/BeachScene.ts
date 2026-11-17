@@ -307,9 +307,8 @@ export class BeachScene extends AreaScene<BeachSceneData> {
     // A welcome sign by the path in.
     const sign = stand(this.tex('beach-sign', drawBeachSign), 6, 8, { solid: 2 });
     this.add
-      .text(sign.x, sign.y - 15, 'THE BEACH', { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '5px', fontStyle: 'bold', color: '#fff8d0' })
+      .text(sign.x, sign.y - 15, 'THE BEACH', { fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '5px', fontStyle: 'bold', color: '#fff8d0', resolution: 8 })
       .setOrigin(0.5, 1)
-      .setResolution(8)
       .setDepth(sign.depth + 1);
 
     // The pier: bollards along its edges, a lantern at the end, a boat tied up beside it.
