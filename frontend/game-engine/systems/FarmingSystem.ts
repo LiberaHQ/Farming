@@ -67,6 +67,40 @@ export class FarmingSystem {
     this.sheltered = check;
   }
 
+  /** Pollinators from nearby flowers: better odds of silver and gold. */
+  private pollinators: (tx: number, ty: number) => boolean = () => false;
+
+  setPollinators(check: (tx: number, ty: number) => boolean): void {
+    this.pollinators = check;
+  }
+
+  pollinatedAt(tx: number, ty: number): boolean {
+    return this.pollinators(tx, ty);
+  }
+
+  /** Every tilled plot. */
+  all(): Plot[] {
+    return [...this.plots.values()];
+  }
+
+  /**
+   * A deer ate this crop overnight: a plant that keeps producing loses its
+   * current harvest (back to its regrow stage); anything else is gone.
+   */
+  graze(plot: Plot): boolean {
+    const crop = plot.crop;
+    if (!crop) return false;
+    const def = CROPS[crop.id];
+    if (def.regrowStage !== undefined && crop.stage > def.regrowStage) {
+      crop.stage = def.regrowStage;
+      crop.sprite.setTexture(cropTextureKey(crop.id, crop.stage));
+    } else {
+      crop.sprite.destroy();
+      plot.crop = null;
+    }
+    return true;
+  }
+
   /** Whether a crop grows in the given season (anywhere under glass, always). */
   inSeason(cropId: CropId, season: Season, tx?: number, ty?: number): boolean {
     if (tx !== undefined && ty !== undefined && this.sheltered(tx, ty)) return true;
@@ -158,7 +192,7 @@ export class FarmingSystem {
       plot.crop = null;
     }
     if (drops) {
-      const q = rollQuality({ level: skills.level('farming'), fed: fed, lucky: this.lucky() });
+      const q = rollQuality({ level: skills.level('farming'), fed: fed, lucky: this.lucky(), pollinated: this.pollinators(plot.tx, plot.ty) });
       this.drops.spawn(def.harvestItem, Phaser.Math.Between(def.yield[0], def.yield[1]) + (this.lucky() && Math.random() < 0.5 ? 1 : 0) + (skills.bonus('farming') ? 1 : 0), x, y, q);
       skills.gain('farming', 7);
       daily.note('harvest');

@@ -152,6 +152,7 @@ import type { AppearanceChoice } from '@farming/shared';
 import { AmbientLifeSystem } from '../systems/AmbientLifeSystem';
 import { TrainSystem } from '../systems/TrainSystem';
 import { NightMarketSystem } from '../systems/NightMarketSystem';
+import { EcosystemSystem, type DawnReport } from '../systems/EcosystemSystem';
 import { OrchardSystem } from '../systems/OrchardSystem';
 import { daily } from '../state/daily';
 import { EPITAPHS, GhostSystem } from '../systems/GhostSystem';
@@ -536,6 +537,8 @@ export class WorldScene extends Phaser.Scene {
     this.fishing = new FishingSystem(this, this.player, this.state, this.drops, fx);
     this.fishing.isHeld = () => this.controls.useHeld();
     this.ambient = new AmbientLifeSystem(this, this.world);
+    this.ecosystem = new EcosystemSystem(this, this.seed, this.world, this.farming, this.build, this.animals);
+    this.farming.setPollinators((tx, ty) => this.ecosystem.pollinated(tx, ty, this.time_.season));
 
     new WaterGlintSystem(this, this.world);
     this.lighting = new LightingSystem(this);
@@ -828,6 +831,7 @@ export class WorldScene extends Phaser.Scene {
       this.nightMarketNote();
       this.heirloomLetters();
     }
+    this.ecosystem.update(delta, { minute: this.time_.minute, season: this.time_.season, weather: this.weather.current, away: this.away });
     this.ambient.update(delta, {
       player: { x: this.player.x, y: this.player.y },
       minute: this.time_.minute,
@@ -1089,7 +1093,9 @@ export class WorldScene extends Phaser.Scene {
       this.orchard.onNewDay();
       this.time.delayedCall(2600, () => this.rollDaily());
       this.resources.onNewDay(this.time_.day, season);
-      this.animals.onNewDay();
+      // The night's wildlife (solo farms; the co-op farm is the server's): deer at the crops, a fox at the coop.
+      const dawn = this.ecosystem.dawn(this.time_.day, season, this.social.allPets.some((p) => p.kind === 'dog'));
+      this.animals.onNewDay(new Set(dawn.spooked));
       this.livestock.morning(this.build.ofKind('barn'));
       siloRefill([...this.build.ofKind('silo'), ...this.build.ofKind('barn')]);
       this.npcs.setWeather(this.weather.current);
@@ -1129,6 +1135,7 @@ export class WorldScene extends Phaser.Scene {
         if (sprinkled > 0) gameEvents.emit('toast', { text: `Your sprinklers watered ${sprinkled} plot${sprinkled > 1 ? 's' : ''}.` });
         if (collected > 0) gameEvents.emit('toast', { text: `Your auto-collectors stored ${collected} finished good${collected > 1 ? 's' : ''}.` });
         if (this.quests.openCount() > 0) gameEvents.emit('toast', { text: 'New requests are up on the village notice board.' });
+        this.wildlifeMorning(dawn);
         this.showSummary(shipped);
       });
     });
@@ -2593,6 +2600,8 @@ export class WorldScene extends Phaser.Scene {
   private ghost: GhostSystem | null = null;
   /** The spirits of the night market (in the graveyard). */
   private nightMarket: NightMarketSystem | null = null;
+  /** Deer, foxes and pollinators around the farm. */
+  private ecosystem!: EcosystemSystem;
   /** Whose stall the market panel is showing. */
   private marketSpirit: SpiritId = 'wick';
   /** The last seed parcel packed this session (its code stays on screen to copy). */
@@ -3970,6 +3979,27 @@ export class WorldScene extends Phaser.Scene {
       loves: [...def.gifts.loved],
       likes: [...def.gifts.liked],
     });
+  }
+
+  // ---------- Wildlife ----------
+
+  /** Tells the player what the wildlife did overnight, and shows the culprits running off. */
+  private wildlifeMorning(dawn: DawnReport): void {
+    const toast = (text: string) => gameEvents.emit('toast', { text });
+    this.ecosystem.playDawn(dawn);
+    if (dawn.eaten.length > 0) {
+      const n = dawn.eaten.length;
+      const what = n === 1 ? `your ${dawn.eaten[0]}` : `${n} of your crops (${[...new Set(dawn.eaten)].join(', ')})`;
+      toast(`🦌 A deer got onto the farm last night and ate ${what}. A closed fence, or a scarecrow within 4 tiles, keeps deer off your crops.`);
+    }
+    if (dawn.spooked.length > 0) {
+      const n = dawn.spooked.length;
+      toast(`🦊 A fox crept up to the coop at dawn — ${n === 1 ? 'one of your animals was' : `${n} of your animals were`} too spooked to lay. Fence the coop in, or keep a dog.`);
+    }
+    if (dawn.dogChased) {
+      const dog = this.social.allPets.find((p) => p.kind === 'dog');
+      toast(`🐕 ${dog?.name ?? 'Your dog'} barked a fox away from the coop at dawn. Good dog!`);
+    }
   }
 
   // ---------- Heirloom seeds ----------

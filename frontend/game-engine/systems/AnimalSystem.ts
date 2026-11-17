@@ -90,11 +90,19 @@ export class AnimalSystem {
     animal.target = null;
   }
 
-  /** Each morning every chicken lays an egg beside itself. */
-  onNewDay(): void {
+  /** Where each coop animal (chicken, duck, farm rabbit) lives, in the order `onNewDay` counts them. */
+  farmHomes(): Array<{ x: number; y: number }> {
+    return this.animals.filter((a) => FARM.has(a.kind)).map((a) => ({ ...a.home }));
+  }
+
+  /** Each morning every chicken lays an egg beside itself — except those a fox spooked (by `farmHomes` index). */
+  onNewDay(spooked: ReadonlySet<number> = new Set()): void {
+    let index = -1;
     for (const a of this.animals) {
       if (!FARM.has(a.kind)) continue;
+      index += 1;
       a.sprite.setPosition(a.home.x, a.home.y);
+      if (spooked.has(index)) continue;
       const item = coopProduce(SAVE_KIND[a.kind as 'chicken' | 'duck' | 'bunny'], Math.random());
       if (item) this.drops.spawn(item, 1, a.home.x + 6, a.home.y - 2);
     }

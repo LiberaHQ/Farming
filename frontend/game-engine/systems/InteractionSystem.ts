@@ -899,7 +899,7 @@ export class InteractionSystem {
     if (!plot?.crop || this.deps.farming.isMature(plot)) return null;
     const crop = CROPS[plot.crop.id];
     const days = crop.matureStage - plot.crop.stage;
-    const verb = `${crop.name} · ready in ${days} day${days === 1 ? '' : 's'}${plot.watered ? ' · watered' : ' · needs water'}${plot.crop.fed ? ' · fertilized' : ''}`;
+    const verb = `${crop.name} · ready in ${days} day${days === 1 ? '' : 's'}${plot.watered ? ' · watered' : ' · needs water'}${plot.crop.fed ? ' · fertilized' : ''}${this.deps.farming.pollinatedAt(plot.tx, plot.ty) ? ' · 🐝 pollinated' : ''}`;
     return { verb, trigger: 'use', info: true, run: () => toast(plot.watered ? `${verb}.` : `${verb}. Use the watering can (or wait for rain).`) };
   }
 

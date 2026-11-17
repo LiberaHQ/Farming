@@ -3,6 +3,23 @@
 A browser-based, top-down 2D sandbox adventure: farming, exploration, gathering, crafting and building.
 **Current state: Phase 5 + two big content updates** — co-op multiplayer over Socket.IO (shared worlds the server is in charge of, synced movement, chat, trading, co-op farming, host migration), accounts, profiles and cloud saves in PostgreSQL, and a game with days and seasons, weather, building, a village market of five merchants with schedules, festivals, heart events and mail, a 30-floor mine with combat, 11 crops, a greenhouse and artisan machines, a barn with cows and sheep, a beach, a cottage you furnish, community projects, a collection with achievements, settings for keys, UI size, day length, gamepads and touch screens — and now a story, villager requests and first-day tips, a shipping bin with a morning report, food buffs, a fishing minigame and crab pots, mine bosses and treasure, rings and armour, an old forest with a hermit, pets, romance and marriage, silos, wells, sheds, ducks and rabbits, decorations and automation, a cottage that comes furnished (with displays for your best fish, food and gems), public co-op games, friends, cabins, a shared wallet, and emotes.
 
+## A living ecosystem
+
+- **Deer graze unprotected crops** (`shared/src/game-config/ecosystem.ts`, `systems/EcosystemSystem.ts`): some nights
+  (about 30%, spring to fall, from day 5) a deer wanders in from the wild edges of the valley and eats 1–3 crops
+  it can reach, ripe ones first. A plant that keeps producing only loses its current harvest. In the morning
+  there are hoofprints by the eaten plots, and the deer bounds off as you wake.
+- **Foxes at dawn:** some mornings (about 25%, from day 4) a fox creeps up to the coop and spooks up to two
+  chickens, ducks or farm rabbits, which lay nothing that morning. Nothing is ever hurt or lost for good.
+- **Keeping wildlife out:** a crop or coop is safe if it can't be reached from the edge of the map — a closed
+  **fence** ring (water and buildings count as walls; paths don't). A **scarecrow** keeps deer off every crop
+  within 4 tiles, and a **dog** barks foxes away.
+- **Pollinators:** crops within 3 tiles of a **flower bed** (2 of a flower pot) are pollinated outside winter:
+  +8% chance of gold and +10% of silver at harvest. Bees hover over flower beds on dry days, and the crop's info
+  says "🐝 pollinated".
+- Wildlife raids happen on solo farms (the co-op farm belongs to the server); pollination works everywhere.
+  Everything is worked out from the world seed and the day, so nothing new is saved.
+
 ## Heirloom seeds
 
 - **Eleven heirloom varieties** (`HEIRLOOMS` in `shared/src/game-config/crops.ts`, rules and parcel codes in
