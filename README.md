@@ -154,7 +154,7 @@ A browser-based, top-down 2D sandbox adventure: farming, exploration, gathering,
   glows. Talk to her and she asks for her three lost belongings one by one: a **silver locket** by the river near
   the bridge, **reading glasses** near the mine entrance, and a **music box** in the far northern woods. Each glints
   where it lies (day or night) and she sets the map trail to it. Rewards: 300g, then 500g and 3 ectoplasm, then
-  1000g and the **Spirit Ring** (always Lucky, +2 defence), after which she drifts up into the sky and rests.
+  1000g and the **Spirit Ring** (always Lucky, 10% less damage), after which she drifts up into the sky and rests.
   Progress is saved in `SocialSave.ghost`.
 - The Guide has two new steps: watch the train go by, and help the ghost rest.
 
