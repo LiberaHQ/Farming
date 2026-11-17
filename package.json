@@ -1,0 +1,23 @@
+{
+  "name": "farming",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Browser-based 2D sandbox adventure game (farming, exploration, crafting).",
+  "workspaces": [
+    "shared",
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev-all.mjs",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev:backend": "npm run dev -w backend",
+    "build": "npm run build --workspaces --if-present",
+    "start": "npm run start -w frontend",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:migrate": "npm run migrate -w backend"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
