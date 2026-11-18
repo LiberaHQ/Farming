@@ -22,10 +22,10 @@ interface Remote {
 
 /** Hand offset and swing angles of a remote player's tool, per facing (matches the local player). */
 const POSE: Record<Direction, { dx: number; dy: number; flip: boolean; swing: [number, number] }> = {
-  down: { dx: 5, dy: -8, flip: true, swing: [-30, 120] },
-  right: { dx: 5, dy: -9, flip: true, swing: [-40, 100] },
-  left: { dx: -5, dy: -9, flip: false, swing: [40, -100] },
-  up: { dx: -4, dy: -12, flip: false, swing: [30, -70] },
+  down: { dx: 6, dy: -9, flip: true, swing: [-30, 120] },
+  right: { dx: 5, dy: -10, flip: true, swing: [-40, 100] },
+  left: { dx: -5, dy: -10, flip: false, swing: [40, -100] },
+  up: { dx: -5, dy: -14, flip: false, swing: [30, -70] },
 };
 
 /**
@@ -103,9 +103,9 @@ export class RemotePlayerSystem {
     this.scene.tweens.add({ targets: r.tool, angle: to, duration: kind === 'swing' ? 220 : 260, onComplete: () => r.tool.setVisible(false) });
   }
 
-  /** Names and positions, for the world map. */
-  positions(): Array<{ x: number; y: number; name: string }> {
-    return [...this.remotes.values()].map((r) => ({ x: r.sprite.x, y: r.sprite.y, name: r.name }));
+  /** Names and positions, for the world map and for finding a friend. */
+  positions(): Array<{ id: string; x: number; y: number; name: string }> {
+    return [...this.remotes.values()].map((r) => ({ id: r.id, x: r.sprite.x, y: r.sprite.y, name: r.name }));
   }
 
   update(delta: number): void {

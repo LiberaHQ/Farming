@@ -68,13 +68,25 @@ export function SettingsPanel() {
 
       <h3 className="panel-subtitle">Day length</h3>
       <div className="settings-row">
-        {(Object.keys(DAY_LENGTHS) as DayLength[]).map((d) => (
-          <button key={d} type="button" className={`btn${s.dayLength === d ? ' btn-primary' : ''}`} onClick={() => settings.set({ dayLength: d })}>
-            {DAY_LENGTHS[d].label}
-          </button>
-        ))}
+        {(Object.keys(DAY_LENGTHS) as DayLength[]).filter((d) => d !== 'world').map((d) => {
+          const active = coop ? coop.dayLength === d : s.dayLength === d;
+          const pick = () => {
+            if (!coop) return settings.set({ dayLength: d });
+            settings.set({ dayLength: d }); // remembered for the next world you host
+            gameCommands.emit('coop:settings', { dayLength: d });
+          };
+          return (
+            <button key={d} type="button" className={`btn${active ? ' btn-primary' : ''}`} disabled={!!coop && (!coop.leader || !!coop.valley)} onClick={pick}>
+              {DAY_LENGTHS[d].label}
+            </button>
+          );
+        })}
       </div>
-      {coop && <p className="hud-muted">In co-op the host's server keeps the clock at normal speed.</p>}
+      {coop && (
+        <p className="hud-muted">
+          {coop.valley ? 'In the Open World a day lasts about two hours, the same for everyone.' : coop.leader ? 'You are hosting: this sets the day length for everyone.' : 'In co-op the host picks the day length for everyone.'}
+        </p>
+      )}
 
       <h3 className="panel-subtitle">Touch controls</h3>
       <div className="settings-row">

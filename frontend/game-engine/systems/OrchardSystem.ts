@@ -156,6 +156,25 @@ export class OrchardSystem {
     }
   }
 
+  /** Another co-op player planted one (the server agreed). */
+  plantRemote(kind: FruitTreeKind, tx: number, ty: number): void {
+    if (!this.at(tx, ty)) this.plant(kind, tx, ty);
+  }
+
+  /** Another co-op player shook the fruit down (they get it). */
+  clearFruit(tree: FruitTree): void {
+    tree.fruit = 0;
+    this.refresh(tree);
+    this.shake(tree);
+  }
+
+  /** Another co-op player felled it (they get the wood). */
+  removeRemote(tree: FruitTree): void {
+    this.deps.fx.burst('leaf', tree.sprite.x, tree.sprite.y - 16, 12);
+    sfx('chop');
+    this.remove(tree);
+  }
+
   /** What pressing E on it does. */
   describe(tree: FruitTree): { verb: string; info: boolean; run: () => void } {
     const def = FRUIT_TREES[tree.kind];
@@ -176,11 +195,11 @@ export class OrchardSystem {
     };
   }
 
-  /** Shake the fruit down. Older trees give better fruit. */
-  pick(tree: FruitTree): void {
-    if (tree.fruit <= 0) return;
+  /** Shake the fruit down (`count` from the server in co-op). Older trees give better fruit. */
+  pick(tree: FruitTree, count = tree.fruit): void {
+    if (count <= 0) return;
     const def = FRUIT_TREES[tree.kind];
-    const n = tree.fruit;
+    const n = count;
     tree.fruit = 0;
     this.refresh(tree);
     const x = tree.sprite.x;
@@ -196,8 +215,8 @@ export class OrchardSystem {
     daily.note('harvest', n);
   }
 
-  /** One axe hit. Returns true once it's down. */
-  chop(tree: FruitTree): boolean {
+  /** One axe hit. True when this blow is enough to bring it down (then call `fell`, once the server agrees in co-op). */
+  hit(tree: FruitTree): boolean {
     const stage = this.stage(tree);
     tree.hits += 1;
     this.shake(tree);
@@ -207,6 +226,12 @@ export class OrchardSystem {
       if (tree.hits === 1 && stage >= 2) gameEvents.emit('toast', { text: `Chopping down your ${FRUIT_TREES[tree.kind].name.toLowerCase()}… (${needed - 1} more hits)` });
       return false;
     }
+    return true;
+  }
+
+  /** Brings it down: its fruit, then a sapling (if it was one) or wood. */
+  fell(tree: FruitTree): void {
+    const stage = this.stage(tree);
     const x = tree.sprite.x;
     const y = tree.sprite.y - 6;
     if (tree.fruit > 0) this.pick(tree);
@@ -215,7 +240,6 @@ export class OrchardSystem {
     else this.deps.drops.spawn('wood', stage === 3 ? 8 : stage * 2, x, y);
     this.deps.fx.burst('leaf', x, y - 10, 12);
     this.remove(tree);
-    return true;
   }
 
   private remove(tree: FruitTree): void {

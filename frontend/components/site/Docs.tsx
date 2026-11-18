@@ -217,7 +217,7 @@ export function Docs() {
             <p>Signed-in players can open a world to friends. Up to {COOP.maxPlayers} people farm the same valley at once.</p>
             <div className="role-list">
               <RoleCard art={ready ? playerArt : undefined} title="Host" tag="Owner" tagKind="gold">
-                <p>Opens their world from the title screen with <b>Host co-op</b> and shares the join code, or lists the game as public in Open games.</p>
+                <p>Opens their world from the title screen with <b>Host co-op</b> and shares the join code, or lists the game as public under Open World → Public farms.</p>
                 <ul>
                   <li>Owns the farm, the farmhouse and the save.</li>
                   <li>Chooses the room settings: public or private, and whether to share one wallet.</li>
@@ -354,8 +354,8 @@ export function Docs() {
                 return (
                   <RoleCard key={k} art={ready ? CREATURE_ART[k] : undefined} title={m.name} tag={`From floor ${m.minFloor}`} tagKind="red">
                     <p>
-                      {m.flies === 'walls' ? 'Drifts straight through walls. ' : m.flies === 'rocks' ? 'Flies over rocks. ' : ''}
-                      Health {m.hp(m.minFloor)}, hits for {m.damage(m.minFloor)} on its first floor.
+                      {m.blurb} Health {m.hp(m.minFloor)}
+                      {m.damage(m.minFloor) > 0 ? `, hits for ${m.damage(m.minFloor)}` : ''} on its first floor.
                     </p>
                     <dl>
                       <dt>Drops</dt>
@@ -381,12 +381,18 @@ export function Docs() {
                   </div>
                   <strong>{b.name}</strong>
                   <span>
-                    Floor {b.floor} · {b.hp} health
+                    Floor {b.floor} · {b.hp} health{b.mini ? ' · mini-boss' : ''}
                   </span>
+                  <span className="doc-muted">{b.phase}</span>
                 </div>
               ))}
             </div>
-            <p className="doc-muted">A boss guards every tenth floor. The way down opens once it falls, and every boss floor hides a treasure chest.</p>
+            <p className="doc-muted">
+              A boss or mini-boss guards every fifth floor, and each one changes its attack at half health. The way down opens once it falls, and every boss floor
+              hides a treasure chest. The mine has six zones (Earth Tunnels, Bat Caverns, Crystal Grotto, Flooded Depths, Haunted Halls, Molten Core); below floor
+              30 the Abyss has no bottom, with a boss every five floors. Some floors are special: monster dens, treasure vaults, cave-ins, dark floors and ore
+              veins, and cracked walls sometimes hide a shortcut two floors down.
+            </p>
           </section>
 
           <section id="wildlife" className="doc-section">

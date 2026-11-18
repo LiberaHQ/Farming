@@ -2,6 +2,7 @@ import { isStorage, PLACEABLES, SILO_CAPACITY, STORAGE_SIZE, type PlaceableKind 
 import { CROPS, type CropId } from '../game-config/crops';
 import { GAME_CONFIG, normalizeAppearance } from '../game-config';
 import { MINE } from '../game-config/activities';
+import { MINE_MAX_FLOOR } from '../game-config/mineZones';
 import { isMachineKind } from '../game-config/machines';
 import { BARN } from '../game-config/livestock';
 import { MAX_LETTERS, type Letter } from '../game-config/village';
@@ -342,7 +343,7 @@ export function validateSave(input: unknown, expectedSeed?: string): SaveValidat
         energy: num(p.energy, 0, GAME_CONFIG.energy.max, 'player.energy'),
         water: int(p.water, 0, GAME_CONFIG.farming.wateringCanCapacity, 'player.water'),
         ...(p.health === undefined ? {} : { health: num(p.health, 0, MINE.maxHealth, 'player.health') }),
-        ...(p.mineDepth === undefined ? {} : { mineDepth: int(p.mineDepth, 0, MINE.floors, 'player.mineDepth') }),
+        ...(p.mineDepth === undefined ? {} : { mineDepth: int(p.mineDepth, 0, MINE_MAX_FLOOR, 'player.mineDepth') }),
         ...(isObj(p.equipment)
           ? {
               equipment: {

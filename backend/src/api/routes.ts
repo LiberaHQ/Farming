@@ -10,7 +10,7 @@ import {
   listWorldsHandler,
   putWorldHandler,
 } from '../controllers/worldController';
-import { addFriendHandler, listFriendsHandler, lobbiesHandler, removeFriendHandler } from '../controllers/socialController';
+import { addFriendHandler, listFriendsHandler, lobbiesHandler, openWorldHandler, removeFriendHandler } from '../controllers/socialController';
 import { isDatabaseReady } from '../database/db';
 import { requireDatabase } from './errors';
 import { rateLimit, requireUser } from './middleware';
@@ -48,3 +48,4 @@ api.get('/friends', requireDatabase, requireUser, listFriendsHandler);
 api.post('/friends', requireDatabase, requireUser, rateLimit(20, 60_000), express.json(), addFriendHandler);
 api.delete('/friends/:username', requireDatabase, requireUser, removeFriendHandler);
 api.get('/lobbies', lobbiesHandler);
+api.get('/openworld', openWorldHandler);

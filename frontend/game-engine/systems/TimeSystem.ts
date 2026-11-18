@@ -18,7 +18,7 @@ export class TimeSystem {
   running = true;
   private carry = 0;
 
-  /** Clock speed (the day-length setting; always 1 in co-op, where the server keeps time). */
+  /** Clock speed: the day-length setting (in co-op, the room's, matching the server's clock). */
   speed = 1;
 
   constructor(private readonly hooks: TimeHooks) {}

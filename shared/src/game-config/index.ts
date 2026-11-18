@@ -11,6 +11,8 @@ export * from './time';
 export * from './placeables';
 export * from './npcs';
 export * from './activities';
+export * from './mineZones';
+export * from './tournaments';
 export * from './machines';
 export * from './livestock';
 export * from './village';

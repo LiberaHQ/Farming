@@ -54,6 +54,11 @@ import {
   type ItemId,
   type MemberView,
   type SharedWorldState,
+  type SpouseHelp,
+  type RoomSettings,
+  type ClaimSave,
+  type MineDashKit,
+  type TournamentView,
   type TradeOffer,
   type WorldOp,
   type NpcId,
@@ -204,6 +209,7 @@ import { drawMuseum, drawVillagerHouse } from '../assets/places';
 import { skills } from '../state/skills';
 import { HorseSystem } from '../systems/HorseSystem';
 import { SkyEventsSystem } from '../systems/SkyEventsSystem';
+import { MineDashRun } from '../systems/MineDashRun';
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
@@ -222,7 +228,7 @@ export interface CoopSceneData {
   me: CoopPlayerState | null;
   members: MemberView[];
   /** Set when the scene restarts for a new co-op day. */
-  morning?: { passedOut: boolean; shipped?: { items: Array<{ itemId: ItemId; quantity: number; gold: number }>; total: number } };
+  morning?: { passedOut: boolean; shipped?: { items: Array<{ itemId: ItemId; quantity: number; gold: number }>; total: number }; collected?: number; spouseHelp?: SpouseHelp | null };
 }
 
 /** How often this player's own progress is reported to the co-op server. */
@@ -288,7 +294,16 @@ export class WorldScene extends Phaser.Scene {
   private readonly seen = new Set<string>();
   private walked = 0;
   private waypoint!: WaypointSystem;
-  private roomSettings: { public: boolean; sharedWallet: boolean; leaderId: string } = { public: false, sharedWallet: false, leaderId: '' };
+  private roomSettings: RoomSettings & { leaderId: string } = { public: false, sharedWallet: false, dayLength: 'normal', leaderId: '' };
+  /** Open World: the valley you're in, everyone's plots, and the plot outlines on the ground. */
+  private valley: { id: string; name: string } | null = null;
+  private claims: ClaimSave[] = [];
+  private claimArt: Phaser.GameObjects.GameObject[] = [];
+  /** The last server gold change we've applied (our reports say so). */
+  private walletSeq = 0;
+  /** A Mine Dash run in progress. */
+  private dash: MineDashRun | null = null;
+  private lastTournaments: TournamentView[] = [];
   /** Co-op guests' cabins on this farm. */
   private cabins: CabinSave[] = [];
   private pets!: PetSystem;
@@ -420,7 +435,8 @@ export class WorldScene extends Phaser.Scene {
       // Friends' cabins only stand while they're playing with you.
       for (const p of save.placed) if (p.kind !== 'cabin' || this.coop) this.build.place(p.kind, p.tx, p.ty, p.items, p.machine, p.hay);
       this.farming.restore(save.farm);
-      if (!this.coop) this.orchard.restore(save.orchard);
+      // In co-op the trees come from the shared world (part of `save` here), like crops.
+      this.orchard.restore(save.orchard);
     } else {
       this.build.place('cottage', this.world.home.tx, this.world.home.ty);
       const mailbox = mailboxTile(this.world);
@@ -794,7 +810,7 @@ export class WorldScene extends Phaser.Scene {
     }
     const windy = this.weather.current === 'rain' || this.weather.current === 'snow' ? 2.2 : 1;
     if (!this.away) this.farming.sway(this.time.now, windy);
-    this.time_.speed = this.coop ? 1 : DAY_LENGTHS[settings.get().dayLength].speed;
+    this.time_.speed = DAY_LENGTHS[this.coop ? this.roomSettings.dayLength : settings.get().dayLength].speed;
     this.state.setClock(gameTime(this.time_.day, this.time_.minute));
     this.player.speedBoost = (this.state.hasBuff('speed') ? 1.25 : 1) * (this.horse.riding ? HORSE_SPEED : 1);
     if (this.horse.riding && (this.sleeping || this.away)) this.horse.dismount();
@@ -1013,7 +1029,10 @@ export class WorldScene extends Phaser.Scene {
       waypoint: this.waypoint.active ? toMap((this.waypoint.active.tx + 0.5) * GAME_CONFIG.tileSize, (this.waypoint.active.ty + 0.5) * GAME_CONFIG.tileSize) : null,
       route: this.waypoint.route.map(([tx, ty]) => toMap((tx + 0.5) * GAME_CONFIG.tileSize, (ty + 0.5) * GAME_CONFIG.tileSize)),
       places: [
+        // Co-op friends, by name, where they are now.
+        ...(this.remotes?.positions() ?? []).map((p) => ({ label: `👤 ${p.name}`, ...toMap(p.x, p.y) })),
         { label: '⛏ Mine', ...toMap((this.world.mine.tx + 1) * GAME_CONFIG.tileSize, this.world.mine.ty * GAME_CONFIG.tileSize) },
+        ...this.claims.filter((c) => c.ownerId === this.coop?.session.selfId).map((c) => ({ label: '📍 Your plot', ...toMap((c.tx + c.w / 2) * GAME_CONFIG.tileSize, (c.ty + c.h / 2) * GAME_CONFIG.tileSize) })),
         ...(this.myCabin() ? [{ label: '🏠 Your cabin', ...toMap((this.myCabin()!.tx + 1) * GAME_CONFIG.tileSize, this.myCabin()!.ty * GAME_CONFIG.tileSize) }] : []),
         { label: '← Forest', ...toMap((this.forestGate().tx + 1.5) * GAME_CONFIG.tileSize, this.forestGate().ty * GAME_CONFIG.tileSize) },
         { label: '🎡 Carnival', ...toMap((this.carnivalGate().tx + 0.5) * GAME_CONFIG.tileSize, (this.carnivalGate().ty + 1) * GAME_CONFIG.tileSize) },
@@ -1240,7 +1259,7 @@ export class WorldScene extends Phaser.Scene {
       social: (this.rememberPetStay(), { ...this.social.serialize(), skills: skills.toSave(), horse: this.horse.toSave(), daily: daily.toSave(), freight: this.freight.toSave() }),
       quests: this.quests.serialize(),
       floor: floorItems.snapshot(),
-      ...(this.coop ? {} : { orchard: this.orchard.serialize() }),
+      orchard: this.orchard.serialize(),
     };
   }
 
@@ -1562,9 +1581,26 @@ export class WorldScene extends Phaser.Scene {
         gameEvents.emit('coop:hostRequest', { save: this.buildSave(), public: isPublic });
       },
       'coop:settings': (p) => this.coop?.session.send('room:settings', p),
+      'tournament:open': () => {
+        if (!this.valley) return;
+        this.setPanel('tournaments');
+        this.refreshTournaments();
+      },
+      'tournament:refresh': () => this.refreshTournaments(),
+      'tournament:enter': ({ id }) => {
+        void this.coop?.session.call('tournament:enter', { id }).then((r) => {
+          if (!r.ok) return void gameEvents.emit('toast', { text: r.error });
+          sfx('coin');
+          gameEvents.emit('toast', { text: `Entered! You have ${r.entries} run${r.entries > 1 ? 's' : ''} in this tournament.` });
+          this.refreshTournaments();
+        });
+      },
+      'dash:start': ({ tournamentId, kit }) => this.startDash(tournamentId, kit),
+      'dash:camp': ({ action }) => this.dash?.campAction(action),
       'chat:send': ({ text }) => this.coop?.session.send('chat:send', { text }),
       'input:typing': ({ typing }) => this.setTyping(typing),
       'trade:request': ({ to }) => this.coop?.session.send('trade:request', { to }),
+      'coop:find': ({ id }) => this.findFriend(id),
       'trade:respond': ({ from, accept }) => this.coop?.session.send('trade:respond', { from, accept }),
       'trade:offer': (offer) => this.coop?.session.send('trade:offer', offer),
       'trade:confirm': () => this.coop?.session.send('trade:confirm'),
@@ -1637,7 +1673,7 @@ export class WorldScene extends Phaser.Scene {
       }
       this.emitTime();
     });
-    on('world:newday', ({ shared, passedOut }) => this.startCoopMorning(shared, passedOut.includes(self)));
+    on('world:newday', ({ shared, passedOut, collected, spouseHelp }) => this.startCoopMorning(shared, passedOut.includes(self), collected ?? 0, spouseHelp ?? null));
     on('chat:message', (m) => gameEvents.emit('chat:message', m));
     on('notice', ({ text }) => gameEvents.emit('toast', { text }));
     on('sleep:status', (s) => gameEvents.emit('coop:sleep', s.inBed > 0 ? s : null));
@@ -1677,16 +1713,46 @@ export class WorldScene extends Phaser.Scene {
         leader: this.roomSettings.leaderId === self,
         public: this.roomSettings.public,
         sharedWallet: this.roomSettings.sharedWallet,
+        dayLength: this.roomSettings.dayLength,
+        ...(session.join.valley ? { valley: session.join.valley.name } : {}),
       });
-    this.roomSettings = session.join.settings ?? { public: false, sharedWallet: false, leaderId: '' };
+    this.roomSettings = session.join.settings ?? { public: false, sharedWallet: false, dayLength: 'normal', leaderId: '' };
     emitInfo();
     on('room:settings', (s) => {
       this.roomSettings = s;
+      session.join.settings = s; // so the next morning's restart starts from the current settings
       emitInfo();
     });
-    on('wallet:gold', ({ gold }) => {
+    on('wallet:gold', ({ gold, seq }) => {
       this.state.setGold(gold);
+      if (typeof seq === 'number') this.walletSeq = Math.max(this.walletSeq, seq);
     });
+    // The Open World: your valley, your plot, and tournaments.
+    this.valley = session.join.valley ?? null;
+    if (this.valley) {
+      this.claims = coop.shared.claims ?? [];
+      this.drawClaims();
+      on('world:claims', ({ claims }) => {
+        this.claims = claims;
+        this.drawClaims();
+      });
+      on('tournament:result', (r) => {
+        sfx(r.prize > 0 ? 'coin' : 'sparkle');
+        const text =
+          r.refund > 0
+            ? `${r.name} was cancelled (too few players): your ${r.refund}g entry is refunded.`
+            : r.rank
+              ? `🏆 ${r.name}: you placed #${r.rank} of ${r.entrants}${r.prize > 0 ? ` and won ${r.prize}g!` : '.'}`
+              : `${r.name} has finished.`;
+        gameEvents.emit('toast', { text });
+      });
+      if (!coop.morning) {
+        const mine = this.claims.find((c) => c.ownerId === self);
+        gameEvents.emit('toast', { text: `Welcome to ${this.valley.name} in the Open World! ${mine ? 'Your plot is marked 📍: farm and build there.' : 'The valley is full of plots right now.'}` });
+        if (mine && !coop.me) this.waypoint.set(mine.tx + Math.floor(mine.w / 2), mine.ty + mine.h);
+        this.time.delayedCall(2500, () => gameEvents.emit('toast', { text: '🏆 Mine Dash tournaments run all day: open the board from the player list.' }));
+      }
+    }
     on('world:cabins', ({ cabins }) => {
       this.cabins = cabins;
     });
@@ -1721,16 +1787,110 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  /** Reports this player's own progress (backpack, gold…) if it changed. */
-  private reportState(force: boolean): void {
-    if (!this.coop || !this.state) return;
-    const state: CoopPlayerState = {
+  /** Co-op: a glowing trail to a friend's current spot (where they are on the farm, or where they left it for a side area). */
+  // ---------- The Open World ----------
+
+  /** Plot outlines on the ground: yours in gold with a sign, others' faint with their owner's name. */
+  private drawClaims(): void {
+    for (const o of this.claimArt) o.destroy();
+    this.claimArt = [];
+    const size = GAME_CONFIG.tileSize;
+    const self = this.coop?.session.selfId;
+    const g = this.add.graphics().setDepth(DEPTH.floor + 0.4);
+    this.claimArt.push(g);
+    for (const c of this.claims) {
+      const mine = c.ownerId === self;
+      g.lineStyle(mine ? 2 : 1, mine ? 0xffd75a : 0xffffff, mine ? 0.75 : 0.25);
+      g.strokeRect(c.tx * size + 1, c.ty * size + 1, c.w * size - 2, c.h * size - 2);
+      if (mine) {
+        g.fillStyle(0xffd75a, 0.06);
+        g.fillRect(c.tx * size, c.ty * size, c.w * size, c.h * size);
+      }
+      const label = this.add
+        .text((c.tx + c.w / 2) * size, c.ty * size + 2, mine ? 'Your plot' : c.name, { fontFamily: 'monospace', fontSize: '8px', color: mine ? '#ffd75a' : '#ffffff', resolution: 4 })
+        .setOrigin(0.5, 0)
+        .setAlpha(mine ? 0.95 : 0.55)
+        .setDepth(DEPTH.floor + 0.5);
+      this.claimArt.push(label);
+    }
+  }
+
+  private refreshTournaments(): void {
+    const session = this.coop?.session;
+    if (!session || !this.valley) return;
+    void session.call('tournament:list', {}).then((r) => {
+      if (r.ok) this.lastTournaments = r.tournaments;
+      if (r.ok) gameEvents.emit('tournament:list', { tournaments: r.tournaments, ranking: r.ranking, gold: this.state.gold });
+      else gameEvents.emit('tournament:list', { tournaments: [], ranking: [], gold: this.state.gold, error: r.error });
+    });
+  }
+
+  /** Starts a Mine Dash run (a paid tournament attempt, or practice). */
+  private startDash(tournamentId: string | null, kit: MineDashKit): void {
+    const session = this.coop?.session;
+    if (!session || !this.valley || this.dash?.active || this.away) return;
+    void session.call('dash:start', { tournamentId, kit }).then((r) => {
+      if (!r.ok) return void gameEvents.emit('toast', { text: r.error });
+      if (this.away || this.dash?.active) return;
+      this.setPanel(null);
+      this.reportState(true);
+      const name = (this.lastTournaments.find((t) => t.id === tournamentId)?.name ?? 'Mine Dash');
+      this.dash = new MineDashRun(
+        {
+          state: this.state,
+          session,
+          setPanel: (p) => this.setPanel(p),
+          clock: () => gameTime(this.time_.day, this.time_.minute),
+          launchMine: (floor, run, exit) => {
+            const host: MineHost = {
+              state: this.state,
+              isFrozen: () => this.panel !== null || this.sleeping,
+              exit: ({ fainted }) => {
+                this.leaveArea('climbed');
+                exit(fainted);
+                this.reportState(true);
+              },
+            };
+            this.enterArea(SCENES.Mine, { floor, host, run } satisfies MineSceneData);
+          },
+          stopMine: () => {
+            if (this.away) this.leaveArea('climbed');
+            this.reportState(true);
+          },
+        },
+        r,
+        name,
+      );
+    });
+  }
+
+  private findFriend(id: string): void {
+    const friend = this.remotes?.positions().find((p) => p.id === id);
+    if (!friend) return void gameEvents.emit('toast', { text: "Can't see them right now." });
+    if (this.away) return void gameEvents.emit('toast', { text: 'Head back out to the farm first.' });
+    const size = GAME_CONFIG.tileSize;
+    this.waypoint.set(Math.floor(friend.x / size), Math.floor((friend.y - 2) / size));
+    gameEvents.emit('toast', { text: `📍 Follow the glowing trail to ${friend.name}.` });
+  }
+
+  /** This player's own progress right now (null outside co-op). Also used to rejoin after a dropped connection. */
+  coopState(): CoopPlayerState | null {
+    // During a Mine Dash run you're carrying a kit, not your own things: don't report it.
+    if (!this.coop || !this.state || !this.player || this.dash?.active) return null;
+    return {
+      walletSeq: this.walletSeq,
       player: { ...this.state.serialize(), x: Math.round(this.player.x), y: Math.round(this.player.y), facing: this.player.facingDirection as Direction },
       social: (this.rememberPetStay(), { ...this.social.serialize(), skills: skills.toSave(), horse: this.horse.toSave(), daily: daily.toSave(), freight: this.freight.toSave() }),
       quests: this.quests.serialize(),
       interior: this.interior,
       collection: this.collection.serialize(),
     };
+  }
+
+  /** Reports this player's own progress (backpack, gold…) if it changed. */
+  private reportState(force: boolean): void {
+    const state = this.coopState();
+    if (!state || !this.coop) return;
     const sig = JSON.stringify(state);
     if (!force && sig === this.lastStateSig) return;
     this.lastStateSig = sig;
@@ -1740,6 +1900,10 @@ export class WorldScene extends Phaser.Scene {
   /** Co-op bedtime: the day ends when everyone is in bed (or at 2am). */
   private enterBed(): void {
     if (this.inBed || !this.coop) return;
+    if (this.valley) {
+      gameEvents.emit('toast', { text: 'The Open World never sleeps: the day ends on the clock (a day lasts about two hours). Eat to get your energy back.' });
+      return;
+    }
     this.inBed = true;
     this.sleeping = true;
     this.player.stop();
@@ -1760,8 +1924,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** The server started a new day: restart from its world, keeping our own progress. */
-  private startCoopMorning(shared: SharedWorldState, passedOut: boolean): void {
+  private startCoopMorning(shared: SharedWorldState, passedOut: boolean, collected = 0, spouseHelp: SpouseHelp | null = null): void {
     if (!this.coop) return;
+    this.dash?.end('quit');
     if (this.away) this.leaveArea('quiet');
     this.sleeping = true;
     this.setPanel(null);
@@ -1776,7 +1941,7 @@ export class WorldScene extends Phaser.Scene {
       interior: this.interior,
       collection: this.collection.serialize(),
     };
-    const restart = () => this.scene.restart({ seed: this.seed, coop: { ...this.coop!, shared, me, morning: { passedOut, shipped } } });
+    const restart = () => this.scene.restart({ seed: this.seed, coop: { ...this.coop!, shared, me, morning: { passedOut, shipped, collected, spouseHelp } } });
     if (this.inBed) restart();
     else {
       this.cameras.main.fadeOut(500, 0, 0, 0);
@@ -1796,6 +1961,8 @@ export class WorldScene extends Phaser.Scene {
     this.deliverMail();
     const sprinkled = this.build.ofKind('sprinkler').length;
     if (sprinkled > 0) gameEvents.emit('toast', { text: 'The sprinklers watered the fields.' });
+    const collected = this.coop?.morning?.collected ?? 0;
+    if (collected > 0) gameEvents.emit('toast', { text: `Your auto-collectors stored ${collected} finished good${collected > 1 ? 's' : ''}.` });
     this.reportState(true);
   }
 
@@ -1882,6 +2049,19 @@ export class WorldScene extends Phaser.Scene {
         case 'donate':
           this.recordDonation(op.goal, op.itemId, op.quantity);
           break;
+        case 'treePlant':
+          this.orchard.plantRemote(op.kind, op.tx, op.ty);
+          break;
+        case 'treePick': {
+          const tree = this.orchard.at(op.tx, op.ty);
+          if (tree) this.orchard.clearFruit(tree);
+          break;
+        }
+        case 'treeChop': {
+          const tree = this.orchard.at(op.tx, op.ty);
+          if (tree) this.orchard.removeRemote(tree);
+          break;
+        }
         case 'barnFeed': {
           const barn = this.build.at(op.tx, op.ty);
           if (barn) barn.hay = (barn.hay ?? 0) + op.quantity;
@@ -4478,8 +4658,16 @@ export class WorldScene extends Phaser.Scene {
     }
     if (!s.spouse) return;
     const name = NPCS[s.spouse].name;
+    // In co-op the server did the chore on the shared farm; show the line for what it rolled.
+    if (this.coop) {
+      const help = this.coop.morning?.spouseHelp;
+      if (help === 'water') this.time.delayedCall(1500, () => gameEvents.emit('toast', { text: `${name} watered the crops this morning. 💧` }));
+      else if (help === 'hay') this.time.delayedCall(1500, () => gameEvents.emit('toast', { text: `${name} put fresh hay in the barn.` }));
+      else if (help === 'breakfast') this.spouseBreakfast(name);
+      return;
+    }
     const roll = Math.random();
-    if (roll < 0.35 && !this.coop) {
+    if (roll < 0.35) {
       const plots = this.farming.serialize().filter((p) => p.crop && !p.watered).length;
       if (plots > 0) {
         this.farming.waterAll();
@@ -4487,7 +4675,7 @@ export class WorldScene extends Phaser.Scene {
         return;
       }
     }
-    if (roll < 0.6 && !this.coop) {
+    if (roll < 0.6) {
       const barns = this.build.ofKind('barn');
       if (barns.length) {
         for (const b of barns) b.hay = Math.min(BARN.hayCapacity, (b.hay ?? 0) + 6);
@@ -4495,10 +4683,12 @@ export class WorldScene extends Phaser.Scene {
         return;
       }
     }
-    if (roll < 0.85) {
-      const breakfast: ItemId = (['omelette', 'bread', 'corn_chowder', 'veggie_soup'] as ItemId[])[Math.floor(Math.random() * 4)];
-      if (this.state.inventory.add(breakfast, 1) === 0) this.time.delayedCall(1500, () => gameEvents.emit('toast', { text: `${name} made you breakfast: ${ITEMS[breakfast].name}.` }));
-    }
+    if (roll < 0.85) this.spouseBreakfast(name);
+  }
+
+  private spouseBreakfast(name: string): void {
+    const breakfast: ItemId = (['omelette', 'bread', 'corn_chowder', 'veggie_soup'] as ItemId[])[Math.floor(Math.random() * 4)];
+    if (this.state.inventory.add(breakfast, 1) === 0) this.time.delayedCall(1500, () => gameEvents.emit('toast', { text: `${name} made you breakfast: ${ITEMS[breakfast].name}.` }));
   }
 
   private heartUp(npcId: NpcId): void {

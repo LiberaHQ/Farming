@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
 import { createGameConfig } from './config';
-import type { AppearanceChoice } from '@farming/shared';
+import type { AppearanceChoice, CoopPlayerState } from '@farming/shared';
 import { gameCommands, gameEvents } from './events/GameEventBus';
 import type { SaveData, SaveStore } from './state/save';
 import type { CoopSession } from './net/CoopSession';
@@ -8,6 +8,8 @@ import type { CoopSession } from './net/CoopSession';
 /** What React gets back: a handle, not the engine. */
 export interface GameHandle {
   destroy(): void;
+  /** Co-op: your own progress this instant (to carry across a reconnect). Null outside co-op. */
+  coopState(): CoopPlayerState | null;
 }
 
 export interface CreateGameOptions {
@@ -38,6 +40,14 @@ export function createGame(parent: HTMLElement, options: CreateGameOptions): Gam
     (window as unknown as { __game?: Phaser.Game }).__game = game;
   }
   return {
+    coopState: () => {
+      const world = game.scene.getScene('World') as unknown as { coopState?: () => CoopPlayerState | null } | null;
+      try {
+        return world?.coopState?.() ?? null;
+      } catch {
+        return null;
+      }
+    },
     destroy: () => {
       gameCommands.emit('game:flush', {});
       game.destroy(true);

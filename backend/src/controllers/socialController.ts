@@ -2,7 +2,8 @@ import type { RequestHandler } from 'express';
 import { HttpError } from '../api/errors';
 import { addFriend, listFriends, removeFriend } from '../models/friendModel';
 import { findUserByUsername } from '../models/userModel';
-import { presenceOf, publicLobbies } from '../realtime';
+import { openWorldStatus, presenceOf, publicLobbies } from '../realtime';
+import { isDatabaseReady } from '../database/db';
 
 /** Your friends, and the game each one is in right now (if any). */
 export const listFriendsHandler: RequestHandler = async (req, res) => {
@@ -31,4 +32,13 @@ export const removeFriendHandler: RequestHandler = async (req, res) => {
 /** Public co-op games anyone can join. */
 export const lobbiesHandler: RequestHandler = (_req, res) => {
   res.json({ lobbies: publicLobbies() });
+};
+
+/** The Open World card: players online, valleys, and whether you live there yet. */
+export const openWorldHandler: RequestHandler = async (req, res, next) => {
+  try {
+    res.json(await openWorldStatus(isDatabaseReady() ? (req.user?.id ?? null) : null));
+  } catch (err) {
+    next(err);
+  }
 };

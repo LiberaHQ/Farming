@@ -136,8 +136,8 @@ A browser-based, top-down 2D sandbox adventure: farming, exploration, gathering,
   days (one season). Once grown, in its own season it blossoms, then grows one fruit each morning up to three;
   out of season the fruit drops off. In winter it's bare. Press E to shake the fruit down. Older trees give better
   fruit (+4% gold per season after it's grown, up to +20%). An axe takes a tree down: a sapling comes back up
-  whole, a grown tree takes 4 hits and gives 8 wood. Trees are saved (`SaveData.orchard`), show on the maps, and
-  can't be planted in co-op worlds yet.
+  whole, a grown tree takes 4 hits and gives 8 wood. Trees are saved (`SaveData.orchard`) and show on the maps.
+  In co-op they're part of the shared world: anyone can plant, pick or fell one, and the server grows the fruit.
 - Two new Guide steps: plant a fruit tree, and harvest a gold-quality crop.
 
 ## Minimap
@@ -369,6 +369,70 @@ Fortune, a treat cart, and Pip the barker at the ticket booth.
   project id in `frontend/.env.local` (`NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`, see `frontend/.env.example`);
   browser extensions work without one. Smart-contract wallets (ERC-1271) aren't supported yet.
 
+## The deeper mine
+
+The mine is now level by level (`shared/src/game-config/mineZones.ts`, `scenes/MineScene.ts`,
+`scenes/mine/MineMonsters.ts`, art in `assets/mineCreatures.ts`):
+
+- **Six zones** with their own colours, light and hazard: Earth Tunnels (1–5), Bat Caverns (6–10, darker),
+  Crystal Grotto (11–15, glowing crystals), Flooded Depths (16–20, pools that block the way — never cutting
+  the cave in two), Haunted Halls (21–25, very dark), Molten Core (26–30, glowing lava cracks that burn).
+  **The Abyss** (31 onwards) has no bottom: each floor borrows a zone's look, everything can turn up, and
+  monsters get 5% tougher every floor. Saves now keep depths up to floor 999.
+- **Eight new monsters**, each with a warning sign: the **Spitter Slime** (keeps its distance, swells, spits
+  slowing goo), **Burrower** (a moving mound that shakes, then pops up beside you), **Crystal Beetle** (blocks
+  hits from the front), **Cave Eel** (lunges from pools at anyone on the edge), **Fuse Cap** (explodes two
+  seconds after a hit, hurting everything nearby and breaking rock), **Lantern Thief** (steals your light
+  until you catch it), **Mimic** (a chest whose lid twitches) and **Magma Imp** (lobs fireballs that leave
+  the floor burning). Any monster can be a golden **elite** (double health, always a prize).
+- **Bosses every five floors**, each changing at half health: Slime Matron (5, calls slimelings), King Slime
+  (10, leaps and lands with a shockwave), Crystal Queen (15, shielded by crystals that grow back), Stone Golem
+  (20, throws boulders, then only its glowing back can be hurt), Lantern Wraith (25, snuffs your light), The
+  Shade (30, vanishes and reappears, then calls ghosts). The Abyss has a random boss every five floors.
+- **Special floors** (from floor 6): monster dens (the ladder appears when they're all gone), treasure
+  vaults (a monster carries the key), cave-ins (45 seconds to find the ladder, whose rock glints), dark
+  floors and ore veins. A cracked wall sometimes hides a **shortcut** two floors down.
+- Every floor, rock, monster and chest comes from the floor's seed, and loot is rolled per rock and per
+  monster — so in Mine Dash everyone gets exactly the same mine and the same luck.
+
+## The Open World and Mine Dash tournaments
+
+**Open World** (title screen → Open World → Join, or `/play?world=1`) is a free, always-on public world.
+The full design is in `docs/concepts/open-world-tournament.md`; what's built:
+
+- **Valleys:** copies of the same map (`OPEN_WORLD.seed`), up to 40 residents each. Your first visit puts
+  you in a friend's valley if there's room, otherwise the fullest one that isn't full (a new valley opens
+  when they're all full). You keep that valley. Valleys are co-op rooms with no host
+  (`Room` with `ValleyHooks`), saved in `open_world_valleys`; your **Open World character** is separate
+  from your own worlds (`open_world_players`): a fresh start, and nothing moves between them.
+- **Plots:** everyone gets an 8 × 8 plot near the village, outlined on the ground ("Your plot", and 📍 on the
+  map). Farming and building happen only on your own plot; nobody can touch someone else's; gathering,
+  foraging, fishing and the mine are shared. Plots of residents away for 14 days can be given to newcomers.
+- **Time:** a game day lasts about two hours, the same for everyone, and never waits for sleepers (beds are
+  off in the Open World). Each player only receives the positions of players within 30 tiles.
+- **Gold the server can change:** entry fees and prizes are server-side changes, numbered; your reports
+  say which they've seen, so an older report can never undo a fee. A new character starts with the
+  normal starting purse, and a report can't add more than 5,000g at once.
+
+**Tournaments** (🏆 in the player list) run on a schedule (`TOURNAMENT_TIERS`): Bronze Mine Dash Sprint every
+hour (250g), Silver Mine Dash every 4 hours (1,500g), Gold daily (7,500g), and a weekly Champion Deep Dive
+(25,000g) for the month's top 20. Pay the entry fee, then play your run any time before it ends (up to 3
+entries; the best run counts). When it ends the server settles it: fewer than 4 entrants → everyone is
+refunded; otherwise 90% of the fees are paid to roughly the top fifth (30/18/12% to the top three…) and 10%
+is burned. Placings earn monthly ranking points. Every fee, refund, prize and burn is written to
+`gold_ledger`. Prizes reach you live, or go into your saved character if you're away.
+
+**Mine Dash** (`systems/MineDashRun.ts`): pick a kit (Brawler, Prospector or Scout); your own backpack waits on
+the surface while you go down with the kit, and comes back afterwards. Everyone in a tournament plays the
+same seeded mine. The clock runs (5 minutes for the Sprint, 15 for Mine Dash, 25 for the Deep Dive from
+floor 11); ore and gems you pick up are run money. After every 5th floor there's a **camp**: heal, sharpen
+your sword, enlarge your lantern or patch your armour with run money — then push on, or **bank your score**
+and climb out. Score: 100 a floor (200 in the Abyss), 250/500/1,000 for bosses, 50 an elite, 100 a vault,
+25 a floor without a scratch, kept ore value ÷ 10 (halved if you faint or quit), and a second of bonus per
+second left when you bank. The server doesn't take the game's score: it checks the run against its own
+clock (nobody clears a floor in under 6 seconds), keeps only boss floors that exist, caps the rest, and
+scores it itself. Free practice runs use a random mine and don't count.
+
 ## Quick start
 
 ```bash
@@ -471,8 +535,8 @@ seeds, some berries, 100g, and a freshly tilled plot beside the cottage. The vil
 10. **Cook** — the Cooking tab in crafting turns crops, eggs, berries and fish into better food.
 11. **Customise** your character from the pause menu.
 12. **Play together** — see Co-op below.
-13. **The mine** (out on its own, usually north — follow ⛏ on the map) — 30 floors of ore, gems and slimes; find the ladder down,
-    an elevator every 5 floors. Watch your health; faint and you're carried home minus some gold.
+13. **The mine** (out on its own, usually north — follow ⛏ on the map) — six zones of five floors and the bottomless Abyss below
+    floor 30; find the ladder down, an elevator every 5 floors. Watch your health; faint and you're carried home minus some gold.
 14. **Artisan goods** — kegs make juice, preserves jars make pickles, the cheese press and loom turn
     milk and wool into cheese and cloth. The greenhouse grows any crop in any season.
 15. **Barn animals** — build a barn, buy cows and sheep from Mira, keep hay in the barn, pet them daily.
@@ -497,8 +561,8 @@ seeds, some berries, 100g, and a freshly tilled plot beside the cottage. The vil
 25. **Fishing minigame** — strike when the "!" shows, then hold Use to keep the green bar on the
     fish until the meter fills. Harder fish dart more. Sometimes it's just an old boot. **Crab pots**
     go in any water; bait them and check them the next morning.
-26. **Mine monsters** — bats from floor 6, rock crabs from 11, ghosts from 21; a boss on floors 10,
-    20 and 30 opens the way down and guards a treasure chest. Chests also turn up on other floors.
+26. **Mine monsters** — twelve kinds, each with its own trick (see "The deeper mine"); a boss or
+    mini-boss every 5th floor opens the way down and guards a treasure chest. Chests also turn up on other floors.
     Wear a ring and armour (Wear in the backpack): power, guard and lucky rings, leather and iron
     armour.
 27. **The old forest** — at the west end of the path. Seasonal forage, ancient stumps for hardwood
@@ -642,7 +706,7 @@ Nine more batches:
   and helps each morning.
 - **G — Farm buildings:** `STORAGE_SIZE`/`isStorage` (chests and sheds), `sprinklerTiles`,
   `siloRefill` (run by both the game and the server), `coopProduce` for chickens, ducks and rabbits,
-  auto-collectors (single player).
+  auto-collectors (run by both the game and the server).
 - **H — Co-op:** public games (`GET /api/lobbies`), friends (`friends` table, `/api/friends`, shows
   which game a friend is in and lets you join it), cabins for guests (`CoopWorld.showCabin`/`hideCabin`: a
   cabin stands only while its owner plays; its spot is remembered in the host's world), and a shared wallet (`room:settings`; the server keeps one purse and syncs
@@ -667,13 +731,32 @@ Nine more batches:
    world stays open (it keeps saving to the owner's account); the owner takes over again when they
    rejoin with the same code. If everyone leaves, the room closes after 30 seconds.
 
+**Staying connected.** If your connection drops (Wi-Fi blip, a laptop waking up), the game doesn't end:
+a "Reconnecting…" banner appears and it rejoins the same room for up to about 45 seconds, then picks up
+from the server's world with your own progress as of the drop (nothing you did in the last few seconds is
+lost; with the shared wallet on, the server's gold figure stands). Friends see you leave and return a
+moment later; if you were hosting, someone else holds the world open meanwhile and you take it back. If
+the server ended the game on purpose (a restart, everyone left), you're told why straight away.
+
+**Finding each other.** Friends appear by name on the world map (👤), and the 📍 button next to a name
+in the player list lays a glowing trail to them.
+
 **What is shared, and who is in charge.** The server holds the shared world: soil and crops, trees,
 rocks and bushes, buildings and chest contents, chickens and their eggs, the clock and the weather.
 Every change is a request (`world:op`) that the server checks against its own copy, using the same
 item, crop and resource rules as the game, before applying it and telling everyone. So two players
 can never harvest the same crop, fell the same tree, pick up the same egg or take the same items
 from a chest. The server also runs the clock and the morning update: crops grow, soil dries,
-sprinklers water, things regrow and chickens lay.
+sprinklers water, things regrow, chickens lay, fruit trees fruit, six wild forage finds pop up in the
+meadows (yesterday's unpicked ones wilt), and auto-collectors move finished machine goods into the
+nearest chest or shed (the morning toast says how many). Fruit trees are shared like crops: planting,
+picking and felling go through the server, so two players can't pick the same tree. A married
+player's spouse still helps in the morning, on the shared farm: watering every dry crop, haying the
+barns or making breakfast, with the same odds as single player.
+
+**Day length.** Whoever is hosting picks it in Settings (Short to Relaxed); the server's clock runs at
+that speed for everyone and everyone gets a note when it changes. A new room starts at the host's own
+day-length setting.
 
 **What each player keeps.** Your backpack, gold, energy, friendships and notice-board progress are
 your own. Your game reports them every few seconds. The server checks each report against the game
@@ -857,8 +940,11 @@ served by the same machine, or from origins in `CORS_ORIGINS`.
 
 ## Next steps
 
+- **Open World:** fully server-owned backpacks (today the server holds tournament gold movements and
+  checks reports, but harvests, shops and crafting are still reported by the game); replaying top runs
+  before paying Gold and Champion prizes; mute/block/report and a slower global chat; trading limits.
+
 1. **Fully server-owned backpacks:** crafting, shopping and harvesting still run on the player's side
    and are reported; moving them to the server would close the remaining gaps.
 2. **Server physics** (collision against the map) for stricter movement checks.
-4. **Auto-collectors in co-op** — they only run in single player for now.
 5. **The shared wallet** lasts for the session; it isn't saved with the world.

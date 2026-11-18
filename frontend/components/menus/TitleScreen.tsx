@@ -4,7 +4,7 @@ import { MenuNav } from './MenuNav';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import type { LobbyView, WorldSummary } from '@farming/shared';
+import { TOURNAMENT_TIERS, type LobbyView, type WorldSummary } from '@farming/shared';
 import { LocalSaveStore } from '@/game-engine/state/save';
 import { downloadSave, readSaveFile } from '@/game-engine/state/saveFile';
 import { useSession } from '@/hooks/useSession';
@@ -34,12 +34,14 @@ export function TitleScreen() {
   const [code, setCode] = useState('');
   const [importMsg, setImportMsg] = useState<string | null>(null);
   const [lobbies, setLobbies] = useState<LobbyView[] | null>(null);
+  const [world, setWorld] = useState<{ online: number; valleys: number; resident: { valley: string } | null } | null>(null);
   const [friends, setFriends] = useState<Array<{ username: string; displayName: string; playing: { code: string; seed: string; hostName: string } | null }> | null>(null);
   const [friendName, setFriendName] = useState('');
   const [friendMsg, setFriendMsg] = useState<string | null>(null);
 
   const refreshSocial = () => {
     api.lobbies().then((r) => setLobbies(r.lobbies)).catch(() => setLobbies([]));
+    api.openWorld().then(setWorld).catch(() => setWorld(null));
     if (user) api.friends().then((r) => setFriends(r.friends)).catch(() => setFriends([]));
   };
   useEffect(() => {
@@ -259,8 +261,25 @@ export function TitleScreen() {
       {user && (
         <section className="card">
           <h2>
-            Open games <button type="button" className="btn btn-small" onClick={refreshSocial}>Refresh</button>
+            Open World <button type="button" className="btn btn-small" onClick={refreshSocial}>Refresh</button>
           </h2>
+          <div className="open-world-card">
+            <div className="open-world-info">
+              <strong>🌍 The Open World</strong>
+              <span className="hud-muted">
+                {world ? `${world.online} playing now · ${world.valleys} valley${world.valleys > 1 ? 's' : ''}` : 'A public valley everyone can join.'}
+                {world?.resident ? ` · you live in ${world.resident.valley}` : ''}
+              </span>
+              <span className="hud-muted">
+                Free to join: get a plot, farm and earn gold. 🏆 Mine Dash tournaments run all day: Bronze every hour ({TOURNAMENT_TIERS.bronze.fee}g),
+                Silver every 4 hours ({TOURNAMENT_TIERS.silver.fee}g), Gold daily ({TOURNAMENT_TIERS.gold.fee}g).
+              </span>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={() => router.push('/play?world=1')}>
+              {world?.resident ? 'Continue' : 'Join'}
+            </button>
+          </div>
+          <h3 className="doc-sub">Public farms</h3>
           {lobbies === null ? (
             <p className="hud-muted">Looking for games…</p>
           ) : lobbies.length === 0 ? (

@@ -1,3 +1,5 @@
+import { DAY_LENGTHS, isDayLength, type DayLength } from '@farming/shared';
+
 /**
  * Player settings that live in this browser: key bindings, UI scale, day
  * length and touch controls. Both the game (Phaser) and the UI (React) read
@@ -55,13 +57,7 @@ export const SECONDARY_KEYS: Partial<Record<BindAction, number>> = { up: 38, dow
 /** Keys that can't be rebound: Esc (menu), the number row (hotbar), Enter (chat), backtick (debug). */
 export const RESERVED_KEYS = new Set([27, 13, 192, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57]);
 
-export type DayLength = 'short' | 'normal' | 'long' | 'relaxed';
-export const DAY_LENGTHS: Record<DayLength, { label: string; speed: number }> = {
-  short: { label: 'Short (~5 min a day)', speed: 1.5 },
-  normal: { label: 'Normal (~8 min a day)', speed: 1 },
-  long: { label: 'Long (~12 min a day)', speed: 2 / 3 },
-  relaxed: { label: 'Relaxed (~16 min a day)', speed: 0.5 },
-};
+export { DAY_LENGTHS, type DayLength };
 
 export type TouchMode = 'auto' | 'on' | 'off';
 
@@ -94,7 +90,7 @@ function load(): Settings {
     return {
       keys,
       uiScale: typeof s.uiScale === 'number' && s.uiScale >= 0.7 && s.uiScale <= 1.6 ? s.uiScale : 1,
-      dayLength: s.dayLength && s.dayLength in DAY_LENGTHS ? s.dayLength : 'normal',
+      dayLength: isDayLength(s.dayLength) ? s.dayLength : 'normal',
       touch: s.touch === 'on' || s.touch === 'off' ? s.touch : 'auto',
       minimap: s.minimap !== false,
     };

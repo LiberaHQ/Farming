@@ -34,6 +34,25 @@ import {
 } from './farmBuildings';
 import { drawBed, drawFurniture, drawSignpost } from './interior';
 import { drawPetSheet } from './pets';
+import {
+  drawBeetleSheet,
+  drawBoulder,
+  drawBurrowerSheet,
+  drawCrackedWall,
+  drawCrystal,
+  drawEelSheet,
+  drawFireball,
+  drawFlameSheet,
+  drawFusecapSheet,
+  drawGoo,
+  drawImpSheet,
+  drawLavaCrack,
+  drawMimicSheet,
+  drawMoundSheet,
+  drawSpitterSheet,
+  drawThiefSheet,
+  drawVaultKey,
+} from './mineCreatures';
 import { drawBirdbath, drawCabin, drawCollector, drawFlowerBed, drawGnome, drawMetalSprinkler, drawShed, drawSilo, drawStatue, drawWell } from './farmDecor';
 import { drawBatSheet, drawCrabSheet, drawGhostSheet, drawTreasureSheet } from './mine';
 import { drawLadderDown, drawLadderUp, drawMineEntrance, drawMineRock, drawSlimeSheet } from './mine';
@@ -106,6 +125,41 @@ export const TEXTURES = {
   bobber: 'fishing-bobber',
   alert: 'fishing-alert',
 } as const;
+
+/** Textures for the deeper mine (zones, newer monsters, hazards). */
+export const MINE_TEX = {
+  spitter: 'mine-spitter',
+  burrower: 'mine-burrower',
+  mound: 'mine-mound',
+  beetle: 'mine-beetle',
+  eel: 'mine-eel',
+  fusecap: 'mine-fusecap',
+  thief: 'mine-thief',
+  mimic: 'mine-mimic',
+  imp: 'mine-imp',
+  flame: 'mine-flame',
+  goo: 'mine-goo',
+  fireball: 'mine-fireball',
+  boulder: 'mine-boulder',
+  crackedWall: 'mine-cracked-wall',
+  key: 'mine-key',
+  lava: 'mine-lava',
+  crystal: 'mine-crystal',
+} as const;
+
+/** Sprite sheets: texture, drawing, frame width, frame height, frame count. */
+const MINE_SHEETS: ReadonlyArray<readonly [string, () => PixelCanvas, number, number, number]> = [
+  [MINE_TEX.spitter, drawSpitterSheet, 14, 12, 2],
+  [MINE_TEX.burrower, drawBurrowerSheet, 14, 12, 2],
+  [MINE_TEX.mound, drawMoundSheet, 14, 7, 2],
+  [MINE_TEX.beetle, drawBeetleSheet, 14, 14, 2],
+  [MINE_TEX.eel, drawEelSheet, 12, 16, 2],
+  [MINE_TEX.fusecap, drawFusecapSheet, 12, 14, 2],
+  [MINE_TEX.thief, drawThiefSheet, 12, 12, 2],
+  [MINE_TEX.mimic, drawMimicSheet, 16, 14, 3],
+  [MINE_TEX.imp, drawImpSheet, 12, 14, 2],
+  [MINE_TEX.flame, drawFlameSheet, 14, 10, 2],
+];
 
 /** Objects whose art changes with the seasons. */
 const SEASONAL_KINDS = new Set<WorldObjectKind>(['oak', 'pine', 'bush', 'tallGrass']);
@@ -246,6 +300,18 @@ export function registerTextures(scene: Phaser.Scene, appearance: CharacterAppea
   for (let f = 0; f < 2; f++) ghost.add(f, 0, f * 12, 0, 12, 14);
   const treasure = add(scene, TEXTURES.treasure, drawTreasureSheet());
   for (let f = 0; f < 2; f++) treasure.add(f, 0, f * 16, 0, 16, 14);
+  // The deeper mine: newer monsters, projectiles and hazards.
+  for (const [key, draw, w, h, count] of MINE_SHEETS) {
+    const sheet = add(scene, key, draw());
+    for (let f = 0; f < count; f++) sheet.add(f, 0, f * w, 0, w, h);
+  }
+  add(scene, MINE_TEX.goo, drawGoo());
+  add(scene, MINE_TEX.fireball, drawFireball());
+  add(scene, MINE_TEX.boulder, drawBoulder());
+  add(scene, MINE_TEX.crackedWall, drawCrackedWall());
+  add(scene, MINE_TEX.key, drawVaultKey());
+  for (let v = 0; v < 3; v++) add(scene, `${MINE_TEX.lava}-${v}`, drawLavaCrack(v));
+  for (let v = 0; v < 2; v++) add(scene, `${MINE_TEX.crystal}-${v}`, drawCrystal(v));
 
   // Ambient life and fishing.
   const duck = add(scene, TEXTURES.duck, drawDuckSheet());

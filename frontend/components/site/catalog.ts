@@ -3,6 +3,7 @@
  * same procedurally drawn pixel art the game uses, so this list stays in step
  * with the game as long as new sprites are added here too.
  */
+import { drawBeetleSheet, drawBurrowerSheet, drawEelSheet, drawFusecapSheet, drawImpSheet, drawMimicSheet, drawSpitterSheet, drawThiefSheet } from '@/game-engine/assets/mineCreatures';
 import {
   CARNIVAL_BARKER,
   CARNIVAL_STAFF,
@@ -213,6 +214,14 @@ export const CREATURE_ART = {
   crab: { key: 'm-crab', name: 'Rock Crab', draw: drawCrabSheet, frames: { w: 16, h: 12, count: 2 } },
   ghost: { key: 'm-ghost', name: 'Ghost', draw: drawGhostSheet, frames: { w: 12, h: 14, count: 2 } },
   treasure: { key: 'm-treasure', name: 'Treasure chest', draw: drawTreasureSheet, frames: { w: 16, h: 14, count: 2 } },
+  spitter: { key: 'm-spitter', name: 'Spitter Slime', draw: drawSpitterSheet, frames: { w: 14, h: 12, count: 2 } },
+  burrower: { key: 'm-burrower', name: 'Burrower', draw: drawBurrowerSheet, frames: { w: 14, h: 12, count: 2 } },
+  beetle: { key: 'm-beetle', name: 'Crystal Beetle', draw: drawBeetleSheet, frames: { w: 14, h: 14, count: 2 } },
+  eel: { key: 'm-eel', name: 'Cave Eel', draw: drawEelSheet, frames: { w: 12, h: 16, count: 2 } },
+  fusecap: { key: 'm-fusecap', name: 'Fuse Cap', draw: drawFusecapSheet, frames: { w: 12, h: 14, count: 2 } },
+  thief: { key: 'm-thief', name: 'Lantern Thief', draw: drawThiefSheet, frames: { w: 12, h: 12, count: 2 } },
+  mimic: { key: 'm-mimic', name: 'Mimic', draw: drawMimicSheet, frames: { w: 16, h: 14, count: 3 } },
+  imp: { key: 'm-imp', name: 'Magma Imp', draw: drawImpSheet, frames: { w: 12, h: 14, count: 2 } },
 } satisfies Record<string, Art>;
 
 // ---------- Tiles ----------

@@ -25,8 +25,14 @@ import {
   type WorldOp,
   type LobbyView,
   type RoomSettings,
+  DAY_LENGTHS,
+  OPEN_WORLD,
+  isDayLength,
+  type DayLength,
+  type SpouseHelp,
   EMOTES,
   normalizeAppearance,
+  isFruitTreeKind,
 } from '@farming/shared';
 import { saveMemberState } from '../models/coopModel';
 import { storeWorld } from '../services/worldService';
@@ -51,6 +57,18 @@ interface Member {
   inBed: boolean;
   chatTimes: number[];
   opTimes: number[];
+  /** Server gold changes (fees, prizes, the shared purse) the client may not have seen yet. */
+  walletSeq: number;
+  adjustments: Array<{ seq: number; delta: number }>;
+}
+
+/** An Open World valley: a room with no host that saves to the Open World tables. */
+export interface ValleyHooks {
+  id: string;
+  name: string;
+  maxPlayers: number;
+  saveWorld(shared: SharedWorldState): Promise<void>;
+  savePlayer(userId: string, state: CoopPlayerState): Promise<void>;
 }
 
 interface Trade {
@@ -94,7 +112,9 @@ export class Room {
   private hostState: CoopPlayerState;
   /** Who's hosting right now: the owner, or a guest standing in while the owner is away. */
   private leaderId: string;
-  private settings: RoomSettings = { public: false, sharedWallet: false };
+  private settings: RoomSettings = { public: false, sharedWallet: false, dayLength: 'normal' };
+  /** The game clock (restarted when the day length changes). */
+  private clock: NodeJS.Timeout | null = null;
   /** The shared purse, while the shared wallet is on. */
   private purse = 0;
 
@@ -106,13 +126,17 @@ export class Room {
     hostState: CoopPlayerState,
     private readonly onClose: (room: Room) => void,
     isPublic = false,
+    dayLength: DayLength = 'normal',
+    readonly valley: ValleyHooks | null = null,
   ) {
     this.world = new CoopWorld(shared);
     this.hostState = hostState;
     this.leaderId = ownerId;
     this.settings.public = isPublic;
+    this.settings.dayLength = valley ? 'world' : dayLength;
+    if (valley) this.leaderId = '';
+    this.startClock();
     this.timers.push(
-      setInterval(() => this.tickClock(), TIME_CONFIG.msPerGameMinute),
       setInterval(() => this.broadcastPositions(), 1000 / COOP.positionRate),
       setInterval(() => void this.persist(), PERSIST_MS),
     );
@@ -128,18 +152,27 @@ export class Room {
   }
 
   lobbyView(): LobbyView {
-    return { code: this.code, seed: this.seed, hostName: this.leaderName, players: this.members.size, max: COOP.maxPlayers, day: this.world.snapshot().time.day };
+    return { code: this.code, seed: this.seed, hostName: this.leaderName, players: this.members.size, max: this.maxPlayers, day: this.world.snapshot().time.day };
   }
 
   private settingsView(): RoomSettings & { leaderId: string } {
     return { ...this.settings, leaderId: this.leaderId };
   }
 
-  /** The host changes who can find the game, or turns the shared wallet on/off. */
+  get maxPlayers(): number {
+    return this.valley?.maxPlayers ?? COOP.maxPlayers;
+  }
+
+  /** The host changes who can find the game, or turns the shared wallet on/off. (Valleys have no host.) */
   updateSettings(userId: string, raw: unknown): void {
-    if (userId !== this.leaderId || !raw || typeof raw !== 'object') return;
+    if (this.valley || userId !== this.leaderId || !raw || typeof raw !== 'object') return;
     const p = raw as Partial<RoomSettings>;
     if (typeof p.public === 'boolean') this.settings.public = p.public;
+    if (isDayLength(p.dayLength) && p.dayLength !== this.settings.dayLength) {
+      this.settings.dayLength = p.dayLength;
+      this.startClock();
+      this.notice(`Day length is now ${DAY_LENGTHS[p.dayLength].label.toLowerCase()}.`);
+    }
     if (typeof p.sharedWallet === 'boolean' && p.sharedWallet !== this.settings.sharedWallet) {
       if (p.sharedWallet) {
         this.purse = [...this.members.values()].reduce((sum, m) => sum + (m.state?.player.gold ?? 0), 0);
@@ -156,12 +189,58 @@ export class Room {
     m_socketsEmit(this, 'room:settings', this.settingsView());
   }
 
+  /** (Re)starts the game clock at the room's day length. */
+  private startClock(): void {
+    if (this.clock) clearInterval(this.clock);
+    this.clock = setInterval(() => this.tickClock(), TIME_CONFIG.msPerGameMinute / DAY_LENGTHS[this.settings.dayLength].speed);
+  }
+
+  /**
+   * The server sets a player's gold (the shared purse, an entry fee, a prize).
+   * Each change gets a number; the client's reports say which they've seen, so
+   * a report sent before the change arrived can't undo it.
+   */
   private setGold(m: Member, gold: number): void {
+    const before = m.state?.player.gold ?? 0;
     if (m.state) {
       m.state.player.gold = gold;
       m.dirty = true;
     }
-    m.socket.emit('wallet:gold', { gold });
+    m.walletSeq += 1;
+    m.adjustments.push({ seq: m.walletSeq, delta: gold - before });
+    if (m.adjustments.length > 50) m.adjustments.shift();
+    m.socket.emit('wallet:gold', { gold, seq: m.walletSeq });
+  }
+
+  /** A player's gold as the server knows it (null = not here). */
+  goldOf(userId: string): number | null {
+    const m = this.members.get(userId);
+    return m?.state ? m.state.player.gold : null;
+  }
+
+  /** Adds (or with a negative amount, takes) gold. False if they're not here or can't afford it. */
+  grantGold(userId: string, delta: number): boolean {
+    const m = this.members.get(userId);
+    if (!m?.state) return false;
+    const gold = m.state.player.gold + delta;
+    if (gold < 0) return false;
+    this.setGold(m, gold);
+    void this.persistMember(m);
+    return true;
+  }
+
+  /** A whole member's state (for the tournament service's checks). */
+  stateOf(userId: string): CoopPlayerState | null {
+    return this.members.get(userId)?.state ?? null;
+  }
+
+  socketOf(userId: string): CoopSocket | null {
+    return this.members.get(userId)?.socket ?? null;
+  }
+
+  /** Tells one player something. */
+  tell(userId: string, text: string): void {
+    this.members.get(userId)?.socket.emit('notice', { text });
   }
 
   private syncPurse(): void {
@@ -189,13 +268,13 @@ export class Room {
 
   /** Adds a player (or the host coming back) and returns what they need to start. */
   join(socket: CoopSocket, user: { id: string; name: string }, me: CoopPlayerState | null): CoopJoin {
-    const host = user.id === this.ownerId;
+    const host = !this.valley && user.id === this.ownerId;
     if (this.hostGone) {
       clearTimeout(this.hostGone);
       this.hostGone = null;
     }
     const state = host ? this.hostState : me;
-    if (!host && !this.members.has(this.leaderId)) this.leaderId = user.id;
+    if (!host && !this.valley && !this.members.has(this.leaderId)) this.leaderId = user.id;
     if (host && this.leaderId !== user.id) {
       this.leaderId = user.id;
       this.notice(`${user.name} is back and hosting again.`);
@@ -217,11 +296,23 @@ export class Room {
       inBed: false,
       chatTimes: [],
       opTimes: [],
+      walletSeq: 0,
+      adjustments: [],
     };
     this.members.set(user.id, member);
     void socket.join(this.code);
+    // Open World: everyone gets (or gets back) their own plot of land.
+    if (this.valley) {
+      const before = this.world.claims.length;
+      const claim = this.world.claimFor(user.id, user.name);
+      this.worldDirty = true;
+      if (this.world.claims.length !== before || claim) {
+        const claims = this.world.claims.map((c) => ({ ...c }));
+        for (const m of this.members.values()) if (m.id !== user.id) m.socket.emit('world:claims', { claims });
+      }
+    }
     // Guests get a cabin of their own on the farm while they play.
-    if (!host) {
+    if (!host && !this.valley) {
       const cabin = this.world.showCabin(user.id, user.name);
       if (cabin) socket.to(this.code).emit('world:op', { op: { t: 'place', kind: 'cabin', tx: cabin.tx, ty: cabin.ty }, by: user.id });
       this.worldDirty = true;
@@ -243,6 +334,7 @@ export class Room {
       me: this.settings.sharedWallet && state ? { ...state, player: { ...state.player, gold: this.purse } } : state,
       members: this.memberViews(),
       settings: this.settingsView(),
+      ...(this.valley ? { valley: { id: this.valley.id, name: this.valley.name } } : {}),
     };
   }
 
@@ -261,7 +353,7 @@ export class Room {
       this.syncPurse();
     }
     // Their cabin comes down until they are back.
-    if (!member.host) {
+    if (!member.host && !this.valley) {
       const cabin = this.world.hideCabin(userId);
       if (cabin) {
         this.worldDirty = true;
@@ -277,6 +369,10 @@ export class Room {
     if (member.host) {
       if (member.state) this.hostState = member.state;
       void this.persist(true);
+    }
+    if (this.valley) {
+      if (this.members.size === 0) void this.close('Everyone left.');
+      return;
     }
     if (this.members.size === 0) {
       // Give the owner a moment to come back (e.g. a page reload) before ending the session.
@@ -297,6 +393,7 @@ export class Room {
     if (this.closed) return;
     this.closed = true;
     this.timers.forEach((t) => clearInterval(t));
+    if (this.clock) clearInterval(this.clock);
     if (this.hostGone) clearTimeout(this.hostGone);
     for (const t of this.trades.values()) if (t.timeout) clearTimeout(t.timeout);
     await this.persist(true);
@@ -366,8 +463,16 @@ export class Room {
       console.warn(`[coop] rejected state from ${m.name}: ${check.error}`);
       return;
     }
+    // Server gold changes this report was written before (a fee, a prize, the purse) still count.
+    const seen = typeof r.walletSeq === 'number' ? r.walletSeq : 0;
+    const unseen = m.adjustments.filter((a) => a.seq > seen).reduce((sum, a) => sum + a.delta, 0);
+    m.adjustments = m.adjustments.filter((a) => a.seq > seen);
+    if (unseen) check.data.player.gold = Math.max(0, check.data.player.gold + unseen);
+    // Open World: a new character starts with the starting purse, no more.
+    if (this.valley && !m.state && check.data.player.gold > GAME_CONFIG.economy.startingGold) check.data.player.gold = GAME_CONFIG.economy.startingGold;
     // A backpack can't conjure a fortune between two reports (they arrive every few seconds).
-    if (m.state && check.data.player.gold - m.state.player.gold > MAX_GOLD_JUMP) {
+    const maxJump = this.valley ? OPEN_WORLD.maxGoldJump : MAX_GOLD_JUMP;
+    if (m.state && check.data.player.gold - m.state.player.gold > maxJump) {
       console.warn(`[coop] rejected state from ${m.name}: gold jumped by ${check.data.player.gold - m.state.player.gold}`);
       m.socket.emit('notice', { text: 'Your progress was out of sync with the server and was not saved.' });
       return;
@@ -405,6 +510,10 @@ export class Room {
     if (!this.rateOk(m.opTimes, 40, 1000)) return ack({ ok: false, reason: 'Slow down!' });
     const op = parseOp(raw);
     if (!op) return ack({ ok: false, reason: 'Invalid action.' });
+    if (this.valley) {
+      const refusal = this.claimRefusal(userId, op);
+      if (refusal) return ack({ ok: false, reason: refusal });
+    }
     // Items going from the backpack into the world must be in the server's copy of the backpack.
     if (op.t === 'donate' || op.t === 'chestPut') {
       const have = m.state?.player.inventory.slots.reduce((sum, s) => (s?.itemId === op.itemId ? sum + s.quantity : sum), 0) ?? 0;
@@ -428,6 +537,28 @@ export class Room {
       return;
     }
     m.socket.to(this.code).emit('world:op', { op, by: userId });
+  }
+
+  /**
+   * Open World plots: nobody touches someone else's, and farming and building
+   * happen on your own (gathering, foraging and the like are fine anywhere else).
+   */
+  private claimRefusal(userId: string, op: WorldOp): string | null {
+    const size = GAME_CONFIG.tileSize;
+    let tile: { tx: number; ty: number } | null = null;
+    if ('tx' in op && 'ty' in op) tile = { tx: op.tx, ty: op.ty };
+    else if (op.t === 'chicken') tile = { tx: Math.floor(op.x / size), ty: Math.floor(op.y / size) };
+    else if (op.t === 'livestock') tile = { tx: op.barnTx, ty: op.barnTy };
+    else if (op.t === 'animalPet' || op.t === 'animalCollect') {
+      const home = this.world.animalHome(op.id);
+      if (home) tile = { tx: Math.floor(home.x / size), ty: Math.floor(home.y / size) - 1 };
+    }
+    if (!tile) return null;
+    const claim = this.world.claimAt(tile.tx, tile.ty);
+    if (claim && claim.ownerId !== userId) return `That's ${claim.name}'s farm.`;
+    const building = ['till', 'plant', 'place', 'treePlant', 'chicken', 'livestock'].includes(op.t);
+    if (building && !claim) return 'Farm and build on your own plot (📍 on the map).';
+    return null;
   }
 
   // ---------- Chat ----------
@@ -541,7 +672,8 @@ export class Room {
   }
 
   private checkEveryoneInBed(): void {
-    if (this.closed || this.members.size === 0) return;
+    // The Open World doesn't wait for anyone: its days end on the clock.
+    if (this.closed || this.members.size === 0 || this.valley) return;
     if ([...this.members.values()].every((m) => m.inBed)) this.startNewDay();
   }
 
@@ -551,6 +683,7 @@ export class Room {
       if (t.phase === 'open') this.closeTrade(t, 'The day ended.');
     }
     this.world.newDay();
+    const help = this.spouseHelp();
     this.worldDirty = true;
     const door = this.doorPosition();
     for (const m of this.members.values()) {
@@ -559,14 +692,31 @@ export class Room {
       m.x = door.x;
       m.y = door.y;
     }
-    this.socketsEmitNewDay(passedOut);
+    this.socketsEmitNewDay(passedOut, help);
     this.broadcastSleep();
     void this.persist();
   }
 
-  private socketsEmitNewDay(passedOut: string[]): void {
+  private socketsEmitNewDay(passedOut: string[], help: Map<string, SpouseHelp> = new Map()): void {
     const shared = this.world.snapshot(true);
-    for (const m of this.members.values()) m.socket.emit('world:newday', { shared, passedOut });
+    for (const m of this.members.values()) m.socket.emit('world:newday', { shared, passedOut, collected: this.world.collected, spouseHelp: help.get(m.id) ?? null });
+  }
+
+  /**
+   * Married players' spouses help out in the morning — the single-player odds:
+   * 35% water the dry crops, else 25% hay the barns, else 25% make breakfast.
+   * Chores land on the shared farm; the client shows its owner the matching line.
+   */
+  private spouseHelp(): Map<string, SpouseHelp> {
+    const help = new Map<string, SpouseHelp>();
+    for (const m of this.members.values()) {
+      if (!m.state?.social?.spouse) continue;
+      const roll = Math.random();
+      if (roll < 0.35 && this.world.spouseWater()) help.set(m.id, 'water');
+      else if (roll < 0.6 && this.world.spouseHay()) help.set(m.id, 'hay');
+      else if (roll < 0.85) help.set(m.id, 'breakfast');
+    }
+    return help;
   }
 
   private emitTime(): void {
@@ -582,7 +732,16 @@ export class Room {
       changed.push([m.id, Math.round(m.x * 10) / 10, Math.round(m.y * 10) / 10, m.facing, m.moving]);
     }
     if (!changed.length) return;
-    for (const m of this.members.values()) m.socket.emit('room:positions', changed);
+    if (!this.valley) {
+      for (const m of this.members.values()) m.socket.emit('room:positions', changed);
+      return;
+    }
+    // Open World: each player only hears about players near them.
+    const range = OPEN_WORLD.viewTiles * GAME_CONFIG.tileSize;
+    for (const m of this.members.values()) {
+      const near = changed.filter((p) => p[0] !== m.id && Math.abs(p[1] - m.x) < range && Math.abs(p[2] - m.y) < range);
+      if (near.length) m.socket.emit('room:positions', near);
+    }
   }
 
   private memberViews(): MemberView[] {
@@ -705,6 +864,18 @@ export class Room {
 
   /** Writes the shared world (into the host's save) and every member's own progress. */
   private async persist(force = false): Promise<void> {
+    if (this.valley) {
+      try {
+        if (this.worldDirty || force) {
+          this.worldDirty = false;
+          await this.valley.saveWorld(this.world.snapshot());
+        }
+        for (const m of this.members.values()) await this.persistMember(m);
+      } catch (err) {
+        console.error(`[world] saving valley ${this.valley.id} failed:`, (err as Error).message);
+      }
+      return;
+    }
     try {
       if (this.worldDirty || force || [...this.members.values()].some((m) => m.host && m.dirty)) {
         this.worldDirty = false;
@@ -721,7 +892,8 @@ export class Room {
     if (m.host || !m.dirty || !m.state) return;
     m.dirty = false;
     try {
-      await saveMemberState(this.ownerId, this.seed, m.id, m.state);
+      if (this.valley) await this.valley.savePlayer(m.id, m.state);
+      else await saveMemberState(this.ownerId, this.seed, m.id, m.state);
     } catch (err) {
       m.dirty = true;
       console.error(`[coop] saving ${m.name} failed:`, (err as Error).message);
@@ -792,6 +964,15 @@ export function parseOp(raw: unknown): WorldOp | null {
     case 'plant': {
       const t = tile();
       return t && typeof o.crop === 'string' && o.crop in CROPS ? { t: 'plant', ...t, crop: o.crop as keyof typeof CROPS } : null;
+    }
+    case 'treePlant': {
+      const t = tile();
+      return t && isFruitTreeKind(o.kind) ? { t: 'treePlant', ...t, kind: o.kind } : null;
+    }
+    case 'treePick':
+    case 'treeChop': {
+      const t = tile();
+      return t ? { t: o.t, ...t } : null;
     }
     case 'place': {
       const t = tile();

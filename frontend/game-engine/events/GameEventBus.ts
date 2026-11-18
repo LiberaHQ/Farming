@@ -1,4 +1,8 @@
 import type {
+  DayLength,
+  MineDashKit,
+  MineDashScore,
+  TournamentView,
   RecipeCategory,
   CarnivalGameId,
   BuffKind,
@@ -39,7 +43,7 @@ export interface InventorySlotView {
   q?: 1 | 2;
 }
 
-export type PanelId = 'inventory' | 'crafting' | 'shop' | 'chest' | 'character' | 'menu' | 'dialogue' | 'map' | 'board' | 'trade' | 'mine' | 'mail' | 'collection' | 'settings' | 'shipping' | 'summary' | 'journal' | 'pet' | 'carnival' | 'calendar' | 'freight' | 'market';
+export type PanelId = 'inventory' | 'crafting' | 'shop' | 'chest' | 'character' | 'menu' | 'dialogue' | 'map' | 'board' | 'trade' | 'mine' | 'mail' | 'collection' | 'settings' | 'shipping' | 'summary' | 'journal' | 'pet' | 'carnival' | 'calendar' | 'freight' | 'market' | 'tournaments' | 'camp' | 'dashResult';
 
 /** The merchant you're trading with, and what's on offer. */
 export interface ShopContext {
@@ -134,7 +138,8 @@ export interface GameEventMap {
     maxHealth: number;
   };
   /** The mine floor the player is on, or null above ground. */
-  'mine:floor': { floor: number } | null;
+  /** In the mine: the floor, its zone, what's special about it (a cave-in shows its countdown, a vault whether you have the key). */
+  'mine:floor': { floor: number; zone?: string; kind?: string | null; timer?: number | null; key?: boolean | null } | null;
   /** Where you are when not on the farm map (beach, cottage). */
   'area:label': { label: string } | null;
   /** Floors the mine's elevator can take you to. */
@@ -243,10 +248,20 @@ export interface GameEventMap {
   'interaction:hint': { action: string | null; key: string | null; blocked: boolean; info?: boolean };
   'perf:fps': { fps: number };
   // Co-op:
-  'coop:info': { code: string; seed: string; hostName: string; selfId: string; host: boolean; leader: boolean; public: boolean; sharedWallet: boolean } | null;
+  'coop:info': { code: string; seed: string; hostName: string; selfId: string; host: boolean; leader: boolean; public: boolean; sharedWallet: boolean; dayLength: DayLength; valley?: string } | null;
+  /** The tournament board (Open World). */
+  'tournament:list': { tournaments: TournamentView[]; ranking: Array<{ name: string; points: number }>; gold: number; error?: string } | null;
+  /** A Mine Dash run in progress. */
+  'dash:state': { name: string; practice: boolean; timeLeft: number; floor: number; money: number; score: number } | null;
+  /** At a Mine Dash camp. */
+  'dash:camp': { floor: number; money: number; health: number; maxHealth: number; attack: number; lantern: number; defense: number } | null;
+  /** A finished run (checking = the server is still scoring it). */
+  'dash:result': { name: string; practice: boolean; score: MineDashScore; best: number | null; checking: boolean; error?: string } | null;
   'coop:members': MemberView[];
   'coop:sleep': { inBed: number; total: number } | null;
   'coop:ended': { reason: string };
+  /** The connection dropped and the game is trying to rejoin the room (null when done). */
+  'coop:reconnecting': { attempt: number; of: number } | null;
   'trade:state': TradeView | null;
   // Transient notifications (not replayed to late subscribers):
   'item:collected': { itemId: ItemId; quantity: number; q?: 1 | 2 };
@@ -324,11 +339,18 @@ export interface GameCommandMap {
   /** Open this world to friends (co-op). */
   'coop:host': { public?: boolean };
   /** Host only: room settings. */
-  'coop:settings': { public?: boolean; sharedWallet?: boolean };
+  'coop:settings': { public?: boolean; sharedWallet?: boolean; dayLength?: DayLength };
+  'tournament:open': Record<string, never>;
+  'tournament:refresh': Record<string, never>;
+  'tournament:enter': { id: string };
+  'dash:start': { tournamentId: string | null; kit: MineDashKit };
+  'dash:camp': { action: 'meal' | 'fullHeal' | 'sharpen' | 'lantern' | 'armour' | 'continue' | 'bank' };
   'chat:send': { text: string };
   /** A text field has keyboard focus: the game stops reading keys meanwhile. */
   'input:typing': { typing: boolean };
   'trade:request': { to: string };
+  /** Co-op: lay a trail to where a friend is. */
+  'coop:find': { id: string };
   'trade:respond': { from: string; accept: boolean };
   'trade:offer': TradeOffer;
   'trade:confirm': Record<string, never>;

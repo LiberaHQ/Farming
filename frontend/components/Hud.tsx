@@ -24,6 +24,7 @@ import { TradePanel } from './panels/TradePanel';
 import { PlayerTradePanel } from './panels/PlayerTradePanel';
 import { CoopHud } from './CoopHud';
 import { ElevatorPanel } from './panels/ElevatorPanel';
+import { CampPanel, DashHud, DashResultPanel, TournamentPanel } from './panels/TournamentPanels';
 import { MailPanel } from './panels/MailPanel';
 import { Toasts } from './Toasts';
 import { CollectionPanel } from './panels/CollectionPanel';
@@ -78,7 +79,12 @@ export function Hud() {
             Seed <strong>{world.seed}</strong>
           </div>
           {mine ? (
-            <div className="mine-label">⛏ Mine · floor {mine.floor}</div>
+            <div className="mine-label">
+              ⛏ {mine.zone ?? 'Mine'} · floor {mine.floor}
+              {mine.kind && <span className="mine-kind"> · {mine.kind}</span>}
+              {mine.timer !== null && mine.timer !== undefined && <span className={`mine-timer${mine.timer <= 10 ? ' urgent' : ''}`}> · ⏱ {mine.timer}s</span>}
+              {mine.key !== null && mine.key !== undefined && <span className="mine-kind"> · {mine.key ? '🗝 key found' : '🔒 find the key'}</span>}
+            </div>
           ) : area ? (
             <div className="mine-label">{area.label}</div>
           ) : (
@@ -170,6 +176,10 @@ export function Hud() {
       )}
       {panel === 'board' && <BoardPanel />}
       {panel === 'freight' && <FreightPanel />}
+      {panel === 'tournaments' && <TournamentPanel />}
+      {panel === 'camp' && <CampPanel />}
+      {panel === 'dashResult' && <DashResultPanel />}
+      <DashHud />
       {panel === 'market' && <NightMarketPanel />}
       {panel === 'mine' && <ElevatorPanel />}
       {panel === 'mail' && <MailPanel />}

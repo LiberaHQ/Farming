@@ -1,6 +1,8 @@
 import type { ItemId } from './items';
 import type { NpcId } from './npcs';
 import type { Season, WeatherKind } from './time';
+import { hashSeed } from '../world/random';
+import { mineScale, mineZone } from './mineZones';
 
 /** Fish you can catch, and when. Weights are relative chances among the fish that are biting. */
 export interface FishDef {
@@ -130,7 +132,7 @@ export function slimeStats(floor: number): { count: number; hp: number; damage: 
 
 // ---------- Mine monsters ----------
 
-export type MonsterKind = 'slime' | 'bat' | 'crab' | 'ghost';
+export type MonsterKind = 'slime' | 'bat' | 'crab' | 'ghost' | 'spitter' | 'burrower' | 'beetle' | 'eel' | 'fusecap' | 'thief' | 'mimic' | 'imp';
 
 export interface MonsterDef {
   kind: MonsterKind;
@@ -138,6 +140,8 @@ export interface MonsterDef {
   minFloor: number;
   /** Flies over rocks (and walls, for ghosts). */
   flies?: 'rocks' | 'walls';
+  /** Its trick, and how to beat it (shown in the handbook). */
+  blurb: string;
   hp: (floor: number) => number;
   damage: (floor: number) => number;
   speed: (floor: number) => number;
@@ -149,25 +153,51 @@ export const MONSTERS: Record<MonsterKind, MonsterDef> = {
     kind: 'slime',
     name: 'Slime',
     minFloor: 1,
+    blurb: 'Hops after you when you get close.',
     hp: (f) => Math.round(3 + f * 0.7),
     damage: (f) => Math.round(6 + f * 0.6),
     speed: (f) => Math.min(52, 24 + f),
     drops: [{ itemId: 'slime', chance: 0.65 }],
+  },
+  spitter: {
+    kind: 'spitter',
+    name: 'Spitter Slime',
+    minFloor: 2,
+    blurb: 'Keeps its distance and spits goo that slows you. It swells up before it spits, and can’t spit at point-blank range.',
+    hp: (f) => Math.round(3 + f * 0.6),
+    damage: (f) => Math.round(4 + f * 0.4),
+    speed: (f) => Math.min(44, 22 + f),
+    drops: [{ itemId: 'slime', chance: 0.8 }],
   },
   bat: {
     kind: 'bat',
     name: 'Cave Bat',
     minFloor: 6,
     flies: 'rocks',
+    blurb: 'Swoops at you erratically over the rocks.',
     hp: (f) => Math.round(2 + f * 0.4),
     damage: (f) => Math.round(5 + f * 0.5),
     speed: (f) => Math.min(70, 40 + f),
     drops: [{ itemId: 'bat_wing', chance: 0.6 }],
   },
+  burrower: {
+    kind: 'burrower',
+    name: 'Burrower',
+    minFloor: 7,
+    blurb: 'Tunnels under the floor as a moving mound and pops up beside you. Watch the mound shake, then hit it as it surfaces.',
+    hp: (f) => Math.round(5 + f * 0.6),
+    damage: (f) => Math.round(7 + f * 0.5),
+    speed: (f) => Math.min(60, 34 + f),
+    drops: [
+      { itemId: 'stone', chance: 0.6 },
+      { itemId: 'clay_pot', chance: 0.06 },
+    ],
+  },
   crab: {
     kind: 'crab',
     name: 'Rock Crab',
     minFloor: 11,
+    blurb: 'A tough rock on legs that scuttles after you.',
     hp: (f) => Math.round(10 + f * 1.1),
     damage: (f) => Math.round(9 + f * 0.6),
     speed: (f) => Math.min(34, 18 + f * 0.5),
@@ -176,11 +206,48 @@ export const MONSTERS: Record<MonsterKind, MonsterDef> = {
       { itemId: 'stone', chance: 0.6 },
     ],
   },
+  beetle: {
+    kind: 'beetle',
+    name: 'Crystal Beetle',
+    minFloor: 11,
+    blurb: 'Its crystal shell blocks hits from the front. Get round to its side or back.',
+    hp: (f) => Math.round(8 + f * 0.9),
+    damage: (f) => Math.round(8 + f * 0.6),
+    speed: (f) => Math.min(30, 16 + f * 0.5),
+    drops: [
+      { itemId: 'amethyst', chance: 0.25 },
+      { itemId: 'iron_ore', chance: 0.4 },
+    ],
+  },
+  eel: {
+    kind: 'eel',
+    name: 'Cave Eel',
+    minFloor: 16,
+    blurb: 'Hides in pools and lunges at anyone on the edge. Ripples give it away; hit it mid-lunge.',
+    hp: (f) => Math.round(9 + f * 0.7),
+    damage: (f) => Math.round(11 + f * 0.6),
+    speed: () => 0,
+    drops: [
+      { itemId: 'seaweed', chance: 0.5 },
+      { itemId: 'pearl', chance: 0.05 },
+    ],
+  },
+  fusecap: {
+    kind: 'fusecap',
+    name: 'Fuse Cap',
+    minFloor: 16,
+    blurb: 'A mushroom that explodes two seconds after it’s hit, hurting everything nearby, rocks included. Hit it and step back, or use it to blast through rock.',
+    hp: () => 1,
+    damage: (f) => Math.round(16 + f * 0.6),
+    speed: () => 0,
+    drops: [{ itemId: 'coal', chance: 0.5 }],
+  },
   ghost: {
     kind: 'ghost',
     name: 'Ghost',
     minFloor: 21,
     flies: 'walls',
+    blurb: 'Drifts straight through walls towards you.',
     hp: (f) => Math.round(8 + f * 0.8),
     damage: (f) => Math.round(12 + f * 0.6),
     speed: (f) => Math.min(40, 20 + f * 0.6),
@@ -189,16 +256,55 @@ export const MONSTERS: Record<MonsterKind, MonsterDef> = {
       { itemId: 'amethyst', chance: 0.12 },
     ],
   },
+  thief: {
+    kind: 'thief',
+    name: 'Lantern Thief',
+    minFloor: 21,
+    blurb: 'Steals your lantern light and runs off giggling. Follow the glow it carries and catch it to get your light back.',
+    hp: (f) => Math.round(4 + f * 0.4),
+    damage: () => 0,
+    speed: (f) => Math.min(58, 36 + f * 0.6),
+    drops: [
+      { itemId: 'amethyst', chance: 0.3 },
+      { itemId: 'ruby', chance: 0.08 },
+    ],
+  },
+  mimic: {
+    kind: 'mimic',
+    name: 'Mimic',
+    minFloor: 21,
+    blurb: 'Looks just like a treasure chest and bites when opened. A real chest never breathes: watch for the lid twitching. Drops extra treasure.',
+    hp: (f) => Math.round(14 + f * 1.0),
+    damage: (f) => Math.round(14 + f * 0.6),
+    speed: (f) => Math.min(48, 26 + f * 0.5),
+    drops: [],
+  },
+  imp: {
+    kind: 'imp',
+    name: 'Magma Imp',
+    minFloor: 26,
+    blurb: 'Throws fireballs that leave the floor burning for a few seconds. It glows before each throw; dodge sideways and close in.',
+    hp: (f) => Math.round(9 + f * 0.7),
+    damage: (f) => Math.round(10 + f * 0.6),
+    speed: (f) => Math.min(46, 24 + f * 0.5),
+    drops: [
+      { itemId: 'coal', chance: 0.6 },
+      { itemId: 'ruby', chance: 0.1 },
+    ],
+  },
 };
 
-/** Which monsters roam a floor, and how many. */
+/** Which monsters roam a floor, and how many (the zone decides the mix). */
 export function floorMonsters(floor: number): { count: number; kinds: MonsterKind[] } {
-  const kinds = (Object.keys(MONSTERS) as MonsterKind[]).filter((k) => floor >= MONSTERS[k].minFloor);
-  return { count: Math.min(10, 2 + Math.floor(floor / 3)), kinds };
+  const scale = mineScale(floor);
+  return { count: Math.min(14, 2 + Math.floor(Math.min(floor, 36) / 3) + (scale > 1 ? 1 : 0)), kinds: [...mineZone(floor).monsters] };
 }
 
-/** A boss guards every tenth floor; the way down opens when it falls. */
+/** Bosses: the big three on floors 10, 20 and 30, mini-bosses on 5, 15 and 25, and a random one every 5th Abyss floor. */
+export type BossId = 'matron' | 'king' | 'queen' | 'golem' | 'wraith' | 'shade';
+
 export interface BossDef {
+  id: BossId;
   floor: number;
   name: string;
   base: MonsterKind;
@@ -207,15 +313,30 @@ export interface BossDef {
   damage: number;
   speed: number;
   tint: number;
+  /** A mini-boss (floors 5, 15, 25): a smaller fight, a smaller prize. */
+  mini?: boolean;
+  /** What changes at half health (shown in the handbook). */
+  phase: string;
 }
 
 export const BOSSES: readonly BossDef[] = [
-  { floor: 10, name: 'King Slime', base: 'slime', scale: 3, hp: 60, damage: 14, speed: 30, tint: 0x6ab8f0 },
-  { floor: 20, name: 'Stone Golem', base: 'crab', scale: 2.6, hp: 140, damage: 22, speed: 22, tint: 0xb0a090 },
-  { floor: 30, name: 'The Shade', base: 'ghost', scale: 2.6, hp: 220, damage: 28, speed: 32, tint: 0xc07ae0 },
+  { id: 'matron', floor: 5, name: 'Slime Matron', base: 'slime', scale: 2.4, hp: 34, damage: 9, speed: 26, tint: 0x9ae07a, mini: true, phase: 'Calls four slimelings to her side.' },
+  { id: 'king', floor: 10, name: 'King Slime', base: 'slime', scale: 3, hp: 60, damage: 14, speed: 30, tint: 0x6ab8f0, phase: 'Leaps into the air and lands with a shockwave: move away when its shadow grows.' },
+  { id: 'queen', floor: 15, name: 'Crystal Queen', base: 'beetle', scale: 2.4, hp: 90, damage: 17, speed: 20, tint: 0xd8a0ff, mini: true, phase: 'Crystals shield her: break them first. At half health they grow back.' },
+  { id: 'golem', floor: 20, name: 'Stone Golem', base: 'crab', scale: 2.6, hp: 140, damage: 22, speed: 22, tint: 0xb0a090, phase: 'Throws boulders, then curls into armour: only its glowing back takes damage.' },
+  { id: 'wraith', floor: 25, name: 'Lantern Wraith', base: 'ghost', scale: 2.2, hp: 150, damage: 22, speed: 30, tint: 0x6a5aa0, mini: true, phase: 'Snuffs out your light every few seconds; follow its glowing eyes.' },
+  { id: 'shade', floor: 30, name: 'The Shade', base: 'ghost', scale: 2.6, hp: 220, damage: 28, speed: 32, tint: 0xc07ae0, phase: 'Vanishes and reappears elsewhere, then starts calling ghosts.' },
 ];
 
-export const bossOf = (floor: number): BossDef | undefined => BOSSES.find((b) => b.floor === floor);
+/** The boss on a floor, if any (deep in the Abyss they're tougher). */
+export function bossOf(floor: number): BossDef | undefined {
+  const fixed = BOSSES.find((b) => b.floor === floor);
+  if (fixed) return fixed;
+  if (floor <= MINE.floors || floor % 5 !== 0) return undefined;
+  const base = BOSSES[hashSeed(`abyss-boss:${floor}`) % BOSSES.length];
+  const s = mineScale(floor);
+  return { ...base, floor, mini: floor % 10 !== 0, hp: Math.round(Math.max(base.hp, 150) * s), damage: Math.round(Math.max(base.damage, 24) * s) };
+}
 
 /** What a treasure chest can hold (deeper = better). */
 export function treasureTable(floor: number): ReadonlyArray<{ itemId: ItemId; quantity: number; weight: number }> {

@@ -1,11 +1,11 @@
-import type { MineRockKind } from '@farming/shared';
+import type { MinePalette, MineRockKind } from '@farming/shared';
 import { P } from './palette';
 import { PixelCanvas } from './PixelCanvas';
 import type { Rng } from '../utils/random';
 
 /** Art for the mine: entrance, cave floor and walls, rocks, ladders and slimes. */
 
-const CAVE = {
+const DEFAULT_CAVE: MinePalette = {
   floor: '#4a3f38',
   floorLight: '#5a4d44',
   floorDark: '#3a312b',
@@ -211,7 +211,15 @@ export function drawSlimeSheet(): PixelCanvas {
  * One floor of the mine as a single image: floor tiles with pebbles and
  * cracks, walls with a lit top edge. `wall(x, y)` says which tiles are rock.
  */
-export function drawCaveFloor(rng: Rng, width: number, height: number, wall: (x: number, y: number) => boolean, size = 16): HTMLCanvasElement {
+export function drawCaveFloor(
+  rng: Rng,
+  width: number,
+  height: number,
+  wall: (x: number, y: number) => boolean,
+  size = 16,
+  opts: { palette?: MinePalette; tile?: (x: number, y: number) => 'water' | 'lava' | null } = {},
+): HTMLCanvasElement {
+  const CAVE = opts.palette ?? DEFAULT_CAVE;
   const p = new PixelCanvas(width * size, height * size);
   for (let ty = 0; ty < height; ty++) {
     for (let tx = 0; tx < width; tx++) {
@@ -230,7 +238,15 @@ export function drawCaveFloor(rng: Rng, width: number, height: number, wall: (x:
         }
         continue;
       }
-      p.rect(x0, y0, size, size, CAVE.floor);
+      const special = opts.tile?.(tx, ty);
+      if (special === 'water') {
+        p.rect(x0, y0, size, size, '#1e4a5a');
+        for (let i = 0; i < 4; i++) p.rect(x0 + rng.int(1, 11), y0 + rng.int(2, 13), rng.int(2, 4), 1, '#3a7a8a');
+        // A lip of wet rock where the pool meets the floor above.
+        if (ty > 0 && opts.tile?.(tx, ty - 1) !== 'water') p.rect(x0, y0, size, 2, wall(tx, ty - 1) ? CAVE.floorDark : '#2a5866');
+        continue;
+      }
+      p.rect(x0, y0, size, size, special === 'lava' ? CAVE.floorDark : CAVE.floor);
       for (let i = 0; i < 7; i++) p.set(x0 + rng.int(0, 15), y0 + rng.int(0, 15), rng.chance(0.5) ? CAVE.floorDark : CAVE.floorLight);
       if (rng.chance(0.12)) p.rect(x0 + rng.int(2, 11), y0 + rng.int(2, 11), 3, 2, '#62564c');
       // Shadow under a wall above, ragged rather than a straight band.

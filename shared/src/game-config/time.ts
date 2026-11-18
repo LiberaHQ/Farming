@@ -13,6 +13,18 @@ export const TIME_CONFIG = {
   daysPerSeason: 10,
 } as const;
 
+/** How long a day lasts: a multiplier on the clock (single player: your setting; co-op: the host's). */
+export type DayLength = 'short' | 'normal' | 'long' | 'relaxed' | 'world';
+export const DAY_LENGTHS: Record<DayLength, { label: string; speed: number }> = {
+  short: { label: 'Short (~5 min a day)', speed: 1.5 },
+  normal: { label: 'Normal (~8 min a day)', speed: 1 },
+  long: { label: 'Long (~12 min a day)', speed: 2 / 3 },
+  relaxed: { label: 'Relaxed (~16 min a day)', speed: 0.5 },
+  /** The Open World's clock: a game day every two real hours. Not offered in Settings. */
+  world: { label: 'Open World (~2 h a day)', speed: 1 / 15 },
+};
+export const isDayLength = (v: unknown): v is DayLength => typeof v === 'string' && Object.hasOwn(DAY_LENGTHS, v);
+
 /** Chance of each weather per season (remaining probability = sunny). */
 export const WEATHER_CHANCES: Record<Season, { rain: number; cloudy: number; snow: number }> = {
   spring: { rain: 0.25, cloudy: 0.2, snow: 0 },

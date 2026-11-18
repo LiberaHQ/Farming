@@ -6,9 +6,11 @@ import type { InteriorSave } from '../game-config/interior';
 import type { CommunityGoalId, CommunityProgress } from '../game-config/community';
 import type { PlaceableKind } from '../game-config/placeables';
 import type { ItemAmount } from '../game-config/recipes';
-import type { WeatherKind } from '../game-config/time';
+import type { DayLength, WeatherKind } from '../game-config/time';
 import type { Direction } from '../types/player';
-import type { CabinSave, ChickenSave, CollectionSave, PlacedSave, PlotSave, QuestSave, ResourceSave, SaveData, SlotData, SocialSave } from '../types/save';
+import type { CabinSave, ChickenSave, CollectionSave, FruitTreeSave, PlacedSave, PlotSave, QuestSave, ResourceSave, SaveData, SlotData, SocialSave } from '../types/save';
+import type { FruitTreeKind } from '../game-config/orchard';
+import type { MineDashKit, MineDashScore, MineDashSummary, MineDashVariant, TournamentTier } from '../game-config/tournaments';
 
 /**
  * The co-op wire protocol (Socket.IO). The server holds the shared world —
@@ -51,6 +53,22 @@ export interface SharedWorldState {
   livestock?: LivestockSave[];
   community?: CommunityProgress;
   cabins?: CabinSave[];
+  /** Fruit trees (shared in co-op, like crops). */
+  orchard?: FruitTreeSave[];
+  /** Open World: each resident's plot of land. */
+  claims?: ClaimSave[];
+}
+
+/** An Open World resident's plot: only they can farm and build on it. */
+export interface ClaimSave {
+  ownerId: string;
+  name: string;
+  tx: number;
+  ty: number;
+  w: number;
+  h: number;
+  /** When its owner was last in the valley (ms). */
+  seen: number;
 }
 
 /** One player's own progress in a shared world. */
@@ -60,6 +78,8 @@ export interface CoopPlayerState {
   quests?: QuestSave;
   interior?: InteriorSave;
   collection?: CollectionSave;
+  /** The last server gold change this report already includes (see 'wallet:gold'). */
+  walletSeq?: number;
 }
 
 export interface MemberView {
@@ -79,12 +99,17 @@ export interface RoomInfo {
   hostName: string;
 }
 
+/** What a married player's spouse did on the shared farm this morning. */
+export type SpouseHelp = 'water' | 'hay' | 'breakfast';
+
 /** Room settings the host (or whoever is hosting now) can change. */
 export interface RoomSettings {
   /** Listed in the public game browser. */
   public: boolean;
   /** Everyone shares one purse of gold. */
   sharedWallet: boolean;
+  /** How long a day lasts; the server's clock runs at this speed for everyone. */
+  dayLength: DayLength;
 }
 
 /** A public game anyone can join, as listed in the browser. */
@@ -105,6 +130,38 @@ export interface CoopJoin {
   me: CoopPlayerState | null;
   members: MemberView[];
   settings?: RoomSettings & { leaderId: string };
+  /** In the Open World: which valley you're in. */
+  valley?: { id: string; name: string };
+}
+
+/** A tournament as the board shows it. */
+export interface TournamentView {
+  id: string;
+  tier: TournamentTier;
+  variant: MineDashVariant;
+  name: string;
+  fee: number;
+  startsAt: number;
+  endsAt: number;
+  status: 'open' | 'settled' | 'cancelled';
+  entrants: number;
+  pool: number;
+  myEntries: number;
+  myBest: number | null;
+  /** Champion tier: may you enter? */
+  eligible: boolean;
+  top: Array<{ name: string; score: number }>;
+}
+
+/** A Mine Dash run the server has started (the seed is the tournament's, revealed now). */
+export interface DashStart {
+  runId: string;
+  seed: string;
+  variant: MineDashVariant;
+  kit: MineDashKit;
+  /** Practice runs don't count and cost nothing. */
+  practice: boolean;
+  tournamentId: string | null;
 }
 
 /** Changes to the shared world a player asks for. The server checks each one against its own state. */
@@ -133,7 +190,11 @@ export type WorldOp =
   | { t: 'animalCollect'; id: number }
   | { t: 'barnFeed'; tx: number; ty: number; quantity: number }
   /** Give items to a community project (the server clamps `quantity` to what's still needed). */
-  | { t: 'donate'; goal: CommunityGoalId; itemId: ItemId; quantity: number };
+  | { t: 'donate'; goal: CommunityGoalId; itemId: ItemId; quantity: number }
+  /** Fruit trees: plant a sapling, shake the fruit down (the server says how many), or land the final axe blow. */
+  | { t: 'treePlant'; tx: number; ty: number; kind: FruitTreeKind }
+  | { t: 'treePick'; tx: number; ty: number }
+  | { t: 'treeChop'; tx: number; ty: number };
 
 export type OpAck =
   | {
@@ -146,6 +207,8 @@ export type OpAck =
       readyAt?: number;
       /** machineLoad: what will come out (crab pots roll it). */
       output?: ItemId;
+      /** treePick: how much fruit came down. */
+      count?: number;
       /** livestock: the new animal's id and name. */
       id?: number;
       name?: string;
@@ -184,10 +247,16 @@ export interface ChatMessage {
 export type PositionTuple = [string, number, number, Direction, number];
 
 export interface ClientToServerEvents {
-  'room:host': (payload: { save: SaveData; public?: boolean }, ack: (r: Result<CoopJoin>) => void) => void;
+  'room:host': (payload: { save: SaveData; public?: boolean; dayLength?: DayLength }, ack: (r: Result<CoopJoin>) => void) => void;
   /** Host only: change room settings. */
   'room:settings': (p: Partial<RoomSettings>) => void;
   'room:join': (payload: { code: string }, ack: (r: Result<CoopJoin>) => void) => void;
+  /** Join (or come back to) the Open World: the server picks your valley. */
+  'openworld:join': (payload: Record<string, never>, ack: (r: Result<CoopJoin>) => void) => void;
+  'tournament:list': (payload: Record<string, never>, ack: (r: Result<{ tournaments: TournamentView[]; ranking: Array<{ name: string; points: number }> }>) => void) => void;
+  'tournament:enter': (payload: { id: string }, ack: (r: Result<{ entries: number; gold: number }>) => void) => void;
+  'dash:start': (payload: { tournamentId: string | null; kit: MineDashKit }, ack: (r: Result<DashStart>) => void) => void;
+  'dash:finish': (payload: { runId: string; summary: MineDashSummary }, ack: (r: Result<{ score: MineDashScore; best: number | null }>) => void) => void;
   'room:leave': () => void;
   'player:move': (p: { x: number; y: number; f: Direction; m: number }) => void;
   'player:anim': (p: { kind: 'swing' | 'pour'; item: ItemId | null }) => void;
@@ -213,7 +282,8 @@ export interface ServerToClientEvents {
   'world:chest': (p: { tx: number; ty: number; items: SlotData[] }) => void;
   'world:time': (p: { day: number; minute: number; weather: WeatherKind }) => void;
   /** A new day began: rebuild from this state. `passedOut` = players who weren't in bed. */
-  'world:newday': (p: { shared: SharedWorldState; passedOut: string[] }) => void;
+  /** `collected`: goods the auto-collectors stored overnight. */
+  'world:newday': (p: { shared: SharedWorldState; passedOut: string[]; collected?: number; spouseHelp?: SpouseHelp | null }) => void;
   'player:anim': (p: { id: string; kind: 'swing' | 'pour'; item: ItemId | null }) => void;
   'player:emote': (p: { id: string; emote: string }) => void;
   /** Your reported position was rejected (moved too far); snap back here. */
@@ -230,7 +300,11 @@ export interface ServerToClientEvents {
   notice: (p: { text: string }) => void;
   'room:settings': (p: RoomSettings & { leaderId: string }) => void;
   /** Shared wallet: the purse everyone spends from. */
-  'wallet:gold': (p: { gold: number }) => void;
+  'wallet:gold': (p: { gold: number; seq?: number }) => void;
+  /** Open World: claims changed (someone new moved in). */
+  'world:claims': (p: { claims: ClaimSave[] }) => void;
+  /** A tournament you entered has finished. */
+  'tournament:result': (p: { id: string; name: string; rank: number | null; entrants: number; prize: number; refund: number }) => void;
   /** Cabins changed (a new guest got one). */
   'world:cabins': (p: { cabins: CabinSave[] }) => void;
 }
@@ -250,6 +324,7 @@ export function splitSave(save: SaveData, drops: WorldDrop[] = []): { shared: Sh
       ...(save.livestock ? { livestock: save.livestock } : {}),
       ...(save.community ? { community: save.community } : {}),
       ...(save.cabins ? { cabins: save.cabins } : {}),
+      ...(save.orchard ? { orchard: save.orchard } : {}),
     },
     player: { player: save.player, social: save.social, quests: save.quests, interior: save.interior, collection: save.collection },
   };
@@ -272,6 +347,7 @@ export function joinSave(shared: SharedWorldState, me: CoopPlayerState, version:
   if (shared.livestock) save.livestock = shared.livestock;
   if (shared.community) save.community = shared.community;
   if (shared.cabins) save.cabins = shared.cabins;
+  if (shared.orchard) save.orchard = shared.orchard;
   if (me.social) save.social = me.social;
   if (me.quests) save.quests = me.quests;
   if (me.interior) save.interior = me.interior;

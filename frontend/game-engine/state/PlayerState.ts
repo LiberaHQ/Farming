@@ -1,5 +1,6 @@
 import {
   MINE,
+  MINE_MAX_FLOOR,
   APPEARANCE_OPTIONS,
   DEFAULT_APPEARANCE_CHOICE,
   GAME_CONFIG,
@@ -329,7 +330,7 @@ export class PlayerState {
     this.energyAmount = Math.max(0, Math.min(this.maxEnergy, num(save.energy, this.maxEnergy)));
     this.waterAmount = Math.max(0, Math.min(this.waterCapacity, num(save.water, this.waterCapacity)));
     this.healthAmount = Math.max(1, Math.min(this.maxHealth, num(save.health, this.maxHealth)));
-    this.depth = Math.max(0, Math.min(MINE.floors, Math.floor(num(save.mineDepth, 0))));
+    this.depth = Math.max(0, Math.min(MINE_MAX_FLOOR, Math.floor(num(save.mineDepth, 0))));
     for (const part of Object.keys(APPEARANCE_OPTIONS) as AppearancePart[]) {
       this.setAppearancePart(part, num(save.appearance?.[part], 0));
     }

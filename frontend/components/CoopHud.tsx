@@ -14,6 +14,7 @@ export function CoopHud() {
   const info = useGameEvent('coop:info');
   const members = useGameEvent('coop:members') ?? [];
   const sleep = useGameEvent('coop:sleep');
+  const reconnecting = useGameEvent('coop:reconnecting');
   const ended = useGameEvent('coop:ended');
   const [invites, setInvites] = useState<Array<{ from: string; name: string }>>([]);
   const [copied, setCopied] = useState(false);
@@ -44,12 +45,21 @@ export function CoopHud() {
   return (
     <>
       <div className="hud-panel coop-roster">
-        <div className="coop-code">
-          <span className="hud-muted">Co-op code</span> <strong>{info.code}</strong>
-          <button type="button" className="btn btn-small" onMouseDown={(e) => e.preventDefault()} onClick={copy}>
-            {copied ? 'Copied' : 'Copy'}
-          </button>
-        </div>
+        {info.valley ? (
+          <div className="coop-code">
+            <span className="hud-muted">🌍 Open World</span> <strong>{info.valley}</strong>
+            <button type="button" className="btn btn-small btn-primary" onMouseDown={(e) => e.preventDefault()} onClick={() => gameCommands.emit('tournament:open', {})}>
+              🏆 Tournaments
+            </button>
+          </div>
+        ) : (
+          <div className="coop-code">
+            <span className="hud-muted">Co-op code</span> <strong>{info.code}</strong>
+            <button type="button" className="btn btn-small" onMouseDown={(e) => e.preventDefault()} onClick={copy}>
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        )}
         <ul className="coop-members">
           {members.map((m) => (
             <li key={m.id}>
@@ -59,6 +69,11 @@ export function CoopHud() {
                 {m.id === info.selfId && <span className="hud-muted"> (you)</span>}
                 {m.inBed && <span title="In bed"> 💤</span>}
               </span>
+              {m.id !== info.selfId && (
+                <button type="button" className="btn btn-small" title={`Show the way to ${m.name}`} aria-label={`Find ${m.name}`} onMouseDown={(e) => e.preventDefault()} onClick={() => gameCommands.emit('coop:find', { id: m.id })}>
+                  📍
+                </button>
+              )}
               {m.id !== info.selfId && (
                 <button type="button" className="btn btn-small" onMouseDown={(e) => e.preventDefault()} onClick={() => gameCommands.emit('trade:request', { to: m.id })}>
                   Trade
@@ -93,6 +108,12 @@ export function CoopHud() {
       )}
 
       <ChatBox />
+
+      {reconnecting && !ended && (
+        <div className="coop-reconnecting" role="status">
+          📡 Connection lost — reconnecting ({reconnecting.attempt}/{reconnecting.of})…
+        </div>
+      )}
 
       {ended && (
         <div className="coop-ended" role="alertdialog">

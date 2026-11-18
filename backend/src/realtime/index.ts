@@ -3,6 +3,7 @@ import type { Server as HttpServer, IncomingMessage } from 'node:http';
 import { Server } from 'socket.io';
 import {
   COOP,
+  isDayLength,
   splitSave,
   validateSave,
   type ClientToServerEvents,
@@ -19,14 +20,21 @@ import { findProfile } from '../models/profileModel';
 import { findWorldSave } from '../models/worldModel';
 import { userForToken } from '../services/authService';
 import { storeWorld } from '../services/worldService';
+import { OpenWorld } from './openWorld';
 import { Room } from './Room';
 import type { CoopSocket, SocketData } from './types';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const SEED = /^[\w\- ]{1,64}$/;
 
-/** Live rooms by invite code. */
+/** Live rooms by invite code (Open World valleys too). */
 const rooms = new Map<string, Room>();
+let openWorld: OpenWorld | null = null;
+
+/** The Open World's card on the title screen. */
+export async function openWorldStatus(userId: string | null) {
+  return openWorld ? openWorld.status(userId) : { online: 0, valleys: 1, resident: null };
+}
 
 function newCode(): string {
   for (;;) {
@@ -81,6 +89,9 @@ export function attachRealtime(server: HttpServer): Server {
     }
   });
 
+  // The Open World runs its tournament schedule from the start (it waits for the database).
+  openWorld = new OpenWorld(rooms);
+
   io.on('connection', (socket: CoopSocket) => {
     const user = () => ({ id: socket.data.user.id, name: socket.data.displayName });
     const room = () => (socket.data.roomCode ? rooms.get(socket.data.roomCode) : undefined);
@@ -118,7 +129,7 @@ export function attachRealtime(server: HttpServer): Server {
             save = (await findWorldSave(socket.data.user.id, seed)) ?? save;
           }
           const { shared, player } = splitSave(save);
-          target = new Room(newCode(), socket.data.user.id, socket.data.displayName, shared, player, (r) => rooms.delete(r.code), payload?.public === true);
+          target = new Room(newCode(), socket.data.user.id, socket.data.displayName, shared, player, (r) => rooms.delete(r.code), payload?.public === true, isDayLength(payload?.dayLength) ? payload.dayLength : 'normal');
           rooms.set(target.code, target);
           console.log(`[coop] ${socket.data.displayName} is hosting "${seed}" as ${target.code}`);
         }
@@ -137,6 +148,7 @@ export function attachRealtime(server: HttpServer): Server {
         const code = String(payload?.code ?? '').trim().toUpperCase();
         const target = rooms.get(code);
         if (!target) return reply({ ok: false, error: 'No game with that code. Check it with your host.' });
+        if (target.valley) return reply({ ok: false, error: 'Join the Open World from the title screen.' });
         if (!target.has(socket.data.user.id) && target.size >= COOP.maxPlayers) {
           return reply({ ok: false, error: `That game is full (${COOP.maxPlayers} players).` });
         }
@@ -150,6 +162,38 @@ export function attachRealtime(server: HttpServer): Server {
         reply({ ok: false, error: 'Could not join. Try again.' });
       }
     });
+
+    // ---------- The Open World ----------
+
+    socket.on('openworld:join', async (_payload, ack) => {
+      const reply = ack as (r: Result<CoopJoin>) => void;
+      if (typeof reply !== 'function') return;
+      try {
+        leaveCurrent();
+        const { room: target, join } = await openWorld!.join(socket, user());
+        kickOtherTabs(target);
+        socket.data.roomCode = target.code;
+        reply({ ok: true, ...join });
+      } catch (err) {
+        console.error('[world] join failed:', (err as Error).message);
+        reply({ ok: false, error: 'Could not reach the Open World. Try again.' });
+      }
+    });
+    const tournament = <T,>(work: () => Promise<Result<T>>, ack: unknown) => {
+      const reply = ack as (r: Result<T>) => void;
+      if (typeof reply !== 'function') return;
+      if (!openWorld) return reply({ ok: false, error: 'Join the Open World first.' });
+      work()
+        .then(reply)
+        .catch((err: Error) => {
+          console.error('[tournaments]', err.message);
+          reply({ ok: false, error: 'Something went wrong. Try again.' });
+        });
+    };
+    socket.on('tournament:list', (_p, ack) => tournament(async () => ({ ok: true as const, ...(await openWorld!.list(id())) }), ack));
+    socket.on('tournament:enter', (p, ack) => tournament(() => openWorld!.enter(id(), socket.data.displayName, String(p?.id ?? '')), ack));
+    socket.on('dash:start', (p, ack) => tournament(() => openWorld!.startRun(id(), typeof p?.tournamentId === 'string' ? p.tournamentId : null, p?.kit), ack));
+    socket.on('dash:finish', (p, ack) => tournament(() => openWorld!.finishRun(id(), String(p?.runId ?? ''), p?.summary), ack));
 
     socket.on('room:leave', leaveCurrent);
     socket.on('disconnect', leaveCurrent);

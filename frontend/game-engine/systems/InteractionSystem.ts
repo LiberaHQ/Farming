@@ -403,9 +403,29 @@ export class InteractionSystem {
     const tree = this.deps.orchard.at(tx, ty);
     if (tree) {
       const orchard = this.deps.orchard;
-      if (mode === 'use' && tool?.kind === 'axe') return toolAction('Chop', 'swing', toolCost, () => orchard.at(tree.tx, tree.ty) === tree && orchard.chop(tree));
+      if (mode === 'use' && tool?.kind === 'axe') {
+        return toolAction('Chop', 'swing', toolCost, () => {
+          if (orchard.at(tree.tx, tree.ty) !== tree || !orchard.hit(tree)) return;
+          // The final blow is a change to the shared world in co-op.
+          authority.request({ t: 'treeChop', tx: tree.tx, ty: tree.ty }, () => {
+            if (orchard.at(tree.tx, tree.ty) === tree) orchard.fell(tree);
+          });
+        });
+      }
       const d = orchard.describe(tree);
-      if (!d.info) return { verb: d.verb, trigger: 'both', run: () => player.useTool(null, 'swing', d.run) };
+      if (!d.info) {
+        // Shaking the fruit down: in co-op the server says how much there was (someone may have beaten you to it).
+        return {
+          verb: d.verb,
+          trigger: 'both',
+          run: () =>
+            player.useTool(null, 'swing', () =>
+              authority.request({ t: 'treePick', tx: tree.tx, ty: tree.ty }, (granted) => {
+                if (orchard.at(tree.tx, tree.ty) === tree) orchard.pick(tree, granted.count ?? tree.fruit);
+              }),
+            ),
+        };
+      }
       if (mode === 'interact' || !tool) return { verb: d.verb, trigger: 'both', info: true, run: d.run };
     }
 
@@ -664,7 +684,6 @@ export class InteractionSystem {
     const sapling = fruitTreeForSapling(stack.itemId);
     if (sapling) {
       const orchard = this.deps.orchard;
-      if (this.deps.coop) return { verb: "Can't plant trees in co-op yet", trigger: 'use', blocked: true, run: () => toast('Fruit trees can only be planted on your own farm for now (not in co-op worlds).') };
       const problem = orchard.plantProblem(tx, ty);
       if (problem) return { verb: "Can't plant here", trigger: 'use', blocked: true, run: () => toast(problem) };
       return {
@@ -672,9 +691,12 @@ export class InteractionSystem {
         trigger: 'use',
         run: () =>
           player.useTool(null, 'swing', () => {
-            if (orchard.plantProblem(tx, ty) || state.inventory.removeAt(slot, 1) !== 1) return;
-            orchard.plant(sapling.kind, tx, ty);
-            toast(`Planted ${/^[aeiou]/i.test(sapling.name) ? 'an' : 'a'} ${sapling.name.toLowerCase()}. It grows on its own and is fully grown in a season.`);
+            if (orchard.plantProblem(tx, ty)) return;
+            authority.request({ t: 'treePlant', tx, ty, kind: sapling.kind }, () => {
+              if (orchard.at(tx, ty) || state.inventory.removeAt(slot, 1) !== 1) return;
+              orchard.plant(sapling.kind, tx, ty);
+              toast(`Planted ${/^[aeiou]/i.test(sapling.name) ? 'an' : 'a'} ${sapling.name.toLowerCase()}. It grows on its own and is fully grown in a season.`);
+            });
           }),
       };
     }

@@ -1,7 +1,7 @@
 'use client';
 
 import { io, type Socket } from 'socket.io-client';
-import type { ClientToServerEvents, CoopJoin, OpAck, Result, SaveData, ServerToClientEvents, WorldOp } from '@farming/shared';
+import type { ClientToServerEvents, CoopJoin, DayLength, OpAck, Result, SaveData, ServerToClientEvents, WorldOp } from '@farming/shared';
 import type { CoopSession } from '@/game-engine/net/CoopSession';
 
 type CoopSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -49,6 +49,13 @@ class SocketSession implements CoopSession {
     (this.socket.emit as (e: string, ...a: unknown[]) => void)(event, ...args);
   };
 
+  call: CoopSession['call'] = (event, payload) =>
+    new Promise((resolve) => {
+      (this.socket.timeout(10000).emit as (e: string, p: unknown, cb: (err: Error | null, r: unknown) => void) => void)(event, payload, (err, r) => {
+        resolve((err ? { ok: false, error: 'The server did not answer.' } : r) as never);
+      });
+    });
+
   op(op: WorldOp): Promise<OpAck> {
     return new Promise((resolve) => {
       this.socket.timeout(8000).emit('world:op', op, (err: Error | null, ack: OpAck) => {
@@ -75,7 +82,7 @@ class SocketSession implements CoopSession {
   }
 }
 
-async function enter(event: 'room:host' | 'room:join', payload: { save: SaveData; public?: boolean } | { code: string }): Promise<SocketSession> {
+async function enter(event: 'room:host' | 'room:join' | 'openworld:join', payload: { save: SaveData; public?: boolean; dayLength?: DayLength } | { code: string } | Record<string, never>): Promise<SocketSession> {
   const socket = await connect();
   const reply = await new Promise<Result<CoopJoin>>((resolve) => {
     (socket.timeout(15000).emit as (e: string, p: unknown, cb: (err: Error | null, r: Result<CoopJoin>) => void) => void)(event, payload, (err, r) =>
@@ -91,8 +98,13 @@ async function enter(event: 'room:host' | 'room:join', payload: { save: SaveData
 }
 
 /** Opens your world to friends. The save is uploaded first so the room starts from your latest progress. */
-export function hostCoop(save: SaveData, isPublic = false): Promise<SocketSession> {
-  return enter('room:host', { save, public: isPublic });
+export function hostCoop(save: SaveData, isPublic = false, dayLength?: DayLength): Promise<SocketSession> {
+  return enter('room:host', { save, public: isPublic, dayLength });
+}
+
+/** Joins the Open World: the server puts you in your valley (choosing one the first time). */
+export function joinOpenWorld(): Promise<SocketSession> {
+  return enter('openworld:join', {});
 }
 
 export function joinCoop(code: string): Promise<SocketSession> {

@@ -74,6 +74,7 @@ export const api = {
   addFriend: (username: string) => request<{ ok: true }>('/friends', json('POST', { username })),
   removeFriend: (username: string) => request<{ ok: true }>(`/friends/${encodeURIComponent(username)}`, { method: 'DELETE' }),
   lobbies: () => request<{ lobbies: LobbyView[] }>('/lobbies'),
+  openWorld: () => request<{ online: number; valleys: number; resident: { valley: string } | null }>('/openworld'),
   deleteWorld: (seed: string) => request<{ ok: true }>(worldPath(seed), { method: 'DELETE' }),
 };
 

@@ -1,4 +1,10 @@
 import {
+  FORAGE,
+  FRUIT_TREES,
+  FRUIT_TREE_MAX_FRUIT,
+  fruitTreeStage,
+  isFruitTreeKind,
+  type FruitTreeSave,
   BARN,
   BERRY_REGROW_DAYS,
   livestockMorning,
@@ -47,6 +53,8 @@ import {
   sprinklerTiles,
   STORAGE_SIZE,
   type CabinSave,
+  type ClaimSave,
+  OPEN_WORLD,
 } from '@farming/shared';
 
 const MAX_CHICKENS = 30;
@@ -90,6 +98,11 @@ export class CoopWorld {
     this.minute = state.time.minute;
     this.weather = state.weather;
     for (const p of state.farm) this.plots.set(this.key(p.tx, p.ty), structuredClone(p));
+    for (const t of state.orchard ?? []) {
+      if (isFruitTreeKind(t.kind) && !this.orchard.has(this.key(t.tx, t.ty))) {
+        this.orchard.set(this.key(t.tx, t.ty), { kind: t.kind, tx: t.tx, ty: t.ty, planted: t.planted, fruit: Math.max(0, Math.min(FRUIT_TREE_MAX_FRUIT, t.fruit)) });
+      }
+    }
     for (const n of state.resources.nodes) this.addNode(structuredClone(n));
     this.pending = structuredClone(state.resources.pending);
     // Cabins appear only while their owner is here (older saves kept them placed).
@@ -99,6 +112,7 @@ export class CoopWorld {
     this.livestock = structuredClone(state.livestock ?? []);
     this.community = structuredClone(state.community ?? {});
     this.cabins = structuredClone(state.cabins ?? []);
+    for (const c of state.claims ?? []) this.claims.push({ ...c });
     this.nextDropId = this.drops.reduce((m, d) => Math.max(m, d.id), 0) + 1;
     // Every world has its market and the host's cottage (the cottage isn't part of saves).
     if (!this.placedAt(this.world.home.tx, this.world.home.ty)) this.addPlaced({ kind: 'cottage', tx: this.world.home.tx, ty: this.world.home.ty });
@@ -221,6 +235,24 @@ export class CoopWorld {
         op.quantity = quantity;
         return { ok: true, accepted: quantity };
       }
+      case 'treePlant': {
+        const problem = this.treePlantProblem(op.tx, op.ty);
+        if (problem) return fail(problem);
+        this.orchard.set(this.key(op.tx, op.ty), { kind: op.kind, tx: op.tx, ty: op.ty, planted: this.day, fruit: 0 });
+        return OK;
+      }
+      case 'treePick': {
+        const tree = this.orchard.get(this.key(op.tx, op.ty));
+        if (!tree) return fail('That tree is gone.');
+        if (tree.fruit <= 0) return fail('Someone already picked it.');
+        const count = tree.fruit;
+        tree.fruit = 0;
+        return { ok: true, count };
+      }
+      case 'treeChop': {
+        if (!this.orchard.delete(this.key(op.tx, op.ty))) return fail('That tree is already down.');
+        return OK;
+      }
       case 'chestPut':
         return this.chestPut(op.tx, op.ty, op.itemId, op.quantity);
       case 'chestTake':
@@ -310,7 +342,16 @@ export class CoopWorld {
     for (const plot of this.plots.values()) plot.watered = true;
   }
 
-  /** The morning update: crops grow, soil dries, things regrow, chickens lay. */
+  /** Goods auto-collectors moved into storage on the last morning (for the players' morning message). */
+  collected = 0;
+  /** Fruit trees, by tile. */
+  private readonly orchard = new Map<number, FruitTreeSave>();
+  /** Open World: residents' plots. */
+  readonly claims: ClaimSave[] = [];
+  /** Drops that are this morning's wild forage (unpicked ones wilt overnight). */
+  private readonly forageIds = new Set<number>();
+
+  /** The morning update: crops grow, soil dries, things regrow, chickens lay, collectors gather. */
   newDay(): void {
     const before = this.season;
     this.day += 1;
@@ -369,6 +410,84 @@ export class CoopWorld {
       if (item) this.drops.push({ id: this.nextDropId++, itemId: item, quantity: 1, x: c.homeX + 6, y: c.homeY - 2 });
     }
     if (this.drops.length > MAX_DROPS) this.drops.splice(0, this.drops.length - MAX_DROPS);
+
+    this.collected = this.runCollectors();
+
+    // Fruit trees: a fruit a morning in their own season (up to three); out of season it drops.
+    for (const tree of this.orchard.values()) {
+      if (fruitTreeStage(this.day - tree.planted) === 3 && FRUIT_TREES[tree.kind].season === season) tree.fruit = Math.min(FRUIT_TREE_MAX_FRUIT, tree.fruit + 1);
+      else tree.fruit = 0;
+    }
+
+    this.spawnWildForage();
+  }
+
+  /**
+   * Same rule as single player: up to six wild finds a morning on open grass at
+   * least ten tiles from the cottage, from the season's forage list. Yesterday's
+   * unpicked forage wilts, so it never piles up.
+   */
+  private spawnWildForage(): void {
+    if (this.forageIds.size) {
+      this.drops = this.drops.filter((d) => !this.forageIds.has(d.id));
+      this.forageIds.clear();
+    }
+    const { width, height, home } = this.world;
+    const pool = FORAGE[this.season];
+    const size = GAME_CONFIG.tileSize;
+    for (let n = 0, tries = 0; n < 6 && tries < 300; tries++) {
+      const tx = Math.floor(Math.random() * width);
+      const ty = Math.floor(Math.random() * height);
+      if (Math.hypot(tx - home.tx, ty - home.ty) < 10 || !this.tileFree(tx, ty)) continue;
+      const id = this.nextDropId++;
+      this.drops.push({ id, itemId: pool[Math.floor(Math.random() * pool.length)], quantity: 1, x: tx * size + 8, y: ty * size + 10 });
+      this.forageIds.add(id);
+      n++;
+    }
+    if (this.drops.length > MAX_DROPS) this.drops.splice(0, this.drops.length - MAX_DROPS);
+  }
+
+  /** A spouse waters every dry crop. False when there was nothing to water. */
+  spouseWater(): boolean {
+    const dry = [...this.plots.values()].filter((p) => p.crop && !p.watered);
+    for (const p of dry) p.watered = true;
+    return dry.length > 0;
+  }
+
+  /** A spouse puts six hay in every barn. False when there are no barns. */
+  spouseHay(): boolean {
+    const barns = this.allPlaced().filter((p) => p.kind === 'barn');
+    for (const b of barns) b.hay = Math.min(BARN.hayCapacity, (b.hay ?? 0) + 6);
+    return barns.length > 0;
+  }
+
+  /**
+   * Auto-collectors move finished goods from machines within 2 tiles into the
+   * nearest chest or shed within 4 tiles — the same rule as single player.
+   */
+  private runCollectors(): number {
+    const now = gameTime(this.day, this.minute);
+    const placed = this.allPlaced();
+    const storages = placed.filter((p) => p.items && (p.kind === 'chest' || p.kind === 'shed'));
+    let moved = 0;
+    for (const c of placed.filter((p) => p.kind === 'collector')) {
+      const store = storages
+        .filter((s) => Math.max(Math.abs(s.tx - c.tx), Math.abs(s.ty - c.ty)) <= 4)
+        .sort((a, b) => Math.hypot(a.tx - c.tx, a.ty - c.ty) - Math.hypot(b.tx - c.tx, b.ty - c.ty))[0];
+      if (!store) continue;
+      const seen = new Set<PlacedSave>();
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const m = this.placedAt(c.tx + dx, c.ty + dy);
+          if (!m || seen.has(m) || !isMachineKind(m.kind) || !m.machine || now < m.machine.readyAt) continue;
+          seen.add(m);
+          if (!this.chestPut(store.tx, store.ty, m.machine.output, 1).ok) continue;
+          m.machine = undefined;
+          moved++;
+        }
+      }
+    }
+    return moved;
   }
 
   /**
@@ -377,6 +496,8 @@ export class CoopWorld {
    */
   snapshot(live = false): SharedWorldState {
     return {
+      orchard: [...this.orchard.values()].map((t) => ({ ...t })),
+      ...(this.claims.length ? { claims: this.claims.map((c) => ({ ...c })) } : {}),
       seed: this.world.seed,
       time: { day: this.day, minute: this.minute },
       weather: this.weather,
@@ -437,6 +558,76 @@ export class CoopWorld {
     if (!cabin || !placed || placed.kind !== 'cabin') return null;
     this.removePlaced(placed);
     return cabin;
+  }
+
+  // ---------- Open World claims ----------
+
+  claimOf(ownerId: string): ClaimSave | undefined {
+    return this.claims.find((c) => c.ownerId === ownerId);
+  }
+
+  claimAt(tx: number, ty: number): ClaimSave | undefined {
+    return this.claims.find((c) => tx >= c.tx && tx < c.tx + c.w && ty >= c.ty && ty < c.ty + c.h);
+  }
+
+  /**
+   * A resident's plot: theirs if they have one (marked as seen now), otherwise
+   * the nearest open grass to the cottage that fits, or an abandoned plot.
+   */
+  claimFor(ownerId: string, name: string): ClaimSave | null {
+    const now = Date.now();
+    const mine = this.claimOf(ownerId);
+    if (mine) {
+      mine.seen = now;
+      mine.name = name;
+      return mine;
+    }
+    const { w, h } = OPEN_WORLD.claim;
+    const spot = this.findClaimSpot(w, h);
+    if (spot) {
+      const claim: ClaimSave = { ownerId, name, tx: spot.tx, ty: spot.ty, w, h, seen: now };
+      this.claims.push(claim);
+      return claim;
+    }
+    // The valley is full of land: take over the longest-abandoned plot, if any.
+    const stale = this.claims.filter((c) => now - c.seen > OPEN_WORLD.inactiveDays * 86_400_000).sort((a, b) => a.seen - b.seen)[0];
+    if (!stale) return null;
+    stale.ownerId = ownerId;
+    stale.name = name;
+    stale.seen = now;
+    return stale;
+  }
+
+  private findClaimSpot(w: number, h: number): { tx: number; ty: number } | null {
+    const home = this.world.home;
+    const m = this.world.market;
+    const spots: Array<{ tx: number; ty: number; d: number }> = [];
+    for (let ty = 2; ty + h < this.world.height - 2; ty++) {
+      for (let tx = 2; tx + w < this.world.width - 2; tx++) {
+        spots.push({ tx, ty, d: Math.hypot(tx + w / 2 - home.tx, ty + h / 2 - home.ty) });
+      }
+    }
+    spots.sort((a, b) => a.d - b.d);
+    for (const s of spots) {
+      if (Math.abs(s.tx + w / 2 - home.tx) < 6 + w / 2 && Math.abs(s.ty + h / 2 - home.ty) < 5 + h / 2) continue;
+      if (s.tx + w >= m.x0 - 3 && s.tx <= m.x1 + 3 && s.ty + h >= m.y0 - 4 && s.ty <= m.y1 + 3) continue;
+      // A tile of space between plots.
+      if (this.claims.some((c) => s.tx < c.tx + c.w + 1 && s.tx + w + 1 > c.tx && s.ty < c.ty + c.h + 1 && s.ty + h + 1 > c.ty)) continue;
+      let ok = true;
+      for (let y = s.ty; y < s.ty + h && ok; y++) {
+        for (let x = s.tx; x < s.tx + w && ok; x++) {
+          if (terrainAt(this.world, x, y) !== Terrain.Grass || this.plotAt(x, y) || this.placedAt(x, y) || this.orchard.has(this.key(x, y))) ok = false;
+        }
+      }
+      if (ok) return { tx: s.tx, ty: s.ty };
+    }
+    return null;
+  }
+
+  /** Where a barn animal lives (for claim checks). */
+  animalHome(id: number): { x: number; y: number } | null {
+    const a = this.livestock.find((l) => l.id === id);
+    return a ? { x: a.homeX, y: a.homeY } : null;
   }
 
   /** Room for a 2×1 cabin with a margin, clear of the market and other guests' spots. */
@@ -520,7 +711,15 @@ export class CoopWorld {
 
   /** Open grass with nothing on it. */
   private tileFree(tx: number, ty: number, onWater = false): boolean {
-    return terrainAt(this.world, tx, ty) === (onWater ? Terrain.Water : Terrain.Grass) && !this.plotAt(tx, ty) && !this.nodeAt(tx, ty) && !this.placedAt(tx, ty);
+    return terrainAt(this.world, tx, ty) === (onWater ? Terrain.Water : Terrain.Grass) && !this.plotAt(tx, ty) && !this.nodeAt(tx, ty) && !this.placedAt(tx, ty) && !this.orchard.has(this.key(tx, ty));
+  }
+
+  /** Same rule as single player: open grass, no fruit tree next to it, and nothing solid beside it. */
+  private treePlantProblem(tx: number, ty: number): string | null {
+    if (!this.tileFree(tx, ty)) return 'Plant it on open grass.';
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && this.orchard.has(this.key(tx + dx, ty + dy))) return 'Too close to another fruit tree.';
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, -1]]) if (this.nodeAt(tx + dx, ty + dy) || this.placedAt(tx + dx, ty + dy)) return 'It needs a little room around it.';
+    return null;
   }
 
   private plotAt(tx: number, ty: number): PlotSave | undefined {
