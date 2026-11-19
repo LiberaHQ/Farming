@@ -604,6 +604,7 @@ export class WorldScene extends Phaser.Scene {
       landmark: (tx, ty) => this.landmarkAction(tx, ty),
       releaseHorse: (x, y) => this.releaseHorse(x, y),
       petAction: (x, y) => this.petAction(x, y),
+      dismountAction: () => this.dismountAction(),
       homeAction: (placed) => {
         const mine = this.myCabin();
         if (placed.kind === 'cabin') {
@@ -3408,8 +3409,7 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     if (this.horse.riding) {
-      this.horse.dismount();
-      sfx('whoosh');
+      this.dismountHorse();
       return;
     }
     if (this.horse.canMount()) {
@@ -3425,6 +3425,20 @@ export class WorldScene extends Phaser.Scene {
     this.fishing.cancel();
     this.horse.mount();
     sfx('whoosh');
+  }
+
+  private dismountHorse(): void {
+    this.horse.dismount();
+    sfx('whoosh');
+  }
+
+  /**
+   * Riding: the action button's last resort, so there is always a visible way
+   * off — on a gamepad or a touch screen there is no horse key at all.
+   */
+  private dismountAction(): { verb: string; run: () => void } | null {
+    if (!this.horse.riding) return null;
+    return { verb: `Get off ${this.horse.name}`, run: () => this.dismountHorse() };
   }
 
   /** Using the Horse item: let your new horse out. */
