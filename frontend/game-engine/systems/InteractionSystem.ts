@@ -112,6 +112,8 @@ interface Deps {
   landmark: (tx: number, ty: number) => { verb: string; info?: boolean; run: () => void } | null;
   /** Pet or stray in front of you: what to say on the button and what happens. */
   petAction: (x: number, y: number) => { verb: string; run: () => void } | null;
+  /** Riding: how to get off, offered only when nothing else is within reach. */
+  dismountAction: () => { verb: string; run: () => void } | null;
   enterForest: () => void;
   houseLevel: () => number;
   /** Co-op cabins and the farmhouse for guests. */
@@ -201,12 +203,23 @@ export class InteractionSystem {
       return;
     }
     if (this.deps.player.isBusy()) return;
-    this.perform(this.resolve('interact'));
+    this.perform(this.resolve('interact') ?? this.dismountFallback());
+  }
+
+  /**
+   * Riding, with nothing else in reach: get off. It runs only once everything
+   * else has declined, so being on the horse never shadows a villager, a gate
+   * or a tool — and because it is an ordinary action it reaches the hint, the
+   * action button and the gamepad, none of which have a horse key.
+   */
+  private dismountFallback(): Action | null {
+    const off = this.deps.dismountAction();
+    return off ? { verb: off.verb, trigger: 'both', run: off.run } : null;
   }
 
   /** Refreshes the cursor, placement ghost, hint and button anchor. `enabled` is false while a menu is open. */
   update(enabled: boolean): void {
-    const action = !enabled ? null : this.deps.fishing.active ? this.fishingAction() : this.resolve('use');
+    const action = !enabled ? null : this.deps.fishing.active ? this.fishingAction() : (this.resolve('use') ?? this.dismountFallback());
     this.drawCursor(enabled, action);
 
     const hint = action
