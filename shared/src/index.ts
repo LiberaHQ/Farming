@@ -7,3 +7,4 @@ export * from './types/save';
 export * from './validation/save';
 export * from './world';
 export * from './net/protocol';
+export * from './net/dashboard';

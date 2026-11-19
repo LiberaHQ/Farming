@@ -52,8 +52,8 @@ export function MenuPanel() {
         <button type="button" className="btn" onClick={() => gameCommands.emit('game:export', {})}>
           Export save file
         </button>
-        <Link className="btn" href="/start">
-          {coop ? 'Leave & quit to title' : 'Save & quit to title'}
+        <Link className="btn" href="/dashboard">
+          {coop ? 'Leave & quit to dashboard' : 'Save & quit to dashboard'}
         </Link>
         {coop ? (
           <div className="menu-coop">

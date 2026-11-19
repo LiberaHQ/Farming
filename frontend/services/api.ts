@@ -1,4 +1,4 @@
-import type { AppearanceChoice, LobbyView, SaveData, WorldSummary } from '@farming/shared';
+import type { DashboardView, AppearanceChoice, LobbyView, SaveData, WorldSummary } from '@farming/shared';
 
 /**
  * Typed client for the backend. Requests go to /api on the game's own origin
@@ -16,6 +16,7 @@ export interface SessionUser {
 export interface Profile {
   displayName: string;
   appearance: AppearanceChoice;
+  motto?: string;
   updatedAt: number;
 }
 
@@ -59,10 +60,12 @@ export const api = {
   me: () => request<{ user: SessionUser | null }>('/auth/me'),
   register: (username: string, password: string) => request<{ user: SessionUser }>('/auth/register', json('POST', { username, password })),
   login: (username: string, password: string) => request<{ user: SessionUser }>('/auth/login', json('POST', { username, password })),
+  googleConfig: () => request<{ clientId: string | null }>('/auth/google/config'),
+  googleSignIn: (credential: string) => request<{ user: SessionUser; created: boolean }>('/auth/google', json('POST', { credential })),
   logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST' }),
 
   profile: () => request<{ profile: Profile; stats: ProfileStats }>('/profile'),
-  updateProfile: (changes: Partial<Pick<Profile, 'displayName' | 'appearance'>>) => request<{ profile: Profile }>('/profile', json('PATCH', changes)),
+  updateProfile: (changes: Partial<Pick<Profile, 'displayName' | 'appearance' | 'motto'>>) => request<{ profile: Profile }>('/profile', json('PATCH', changes)),
 
   worlds: () => request<{ worlds: WorldSummary[] }>('/worlds'),
   /** Null when this world has no save yet. */
@@ -73,6 +76,7 @@ export const api = {
   friends: () => request<{ friends: Array<{ username: string; displayName: string; playing: { code: string; seed: string; hostName: string } | null }> }>('/friends'),
   addFriend: (username: string) => request<{ ok: true }>('/friends', json('POST', { username })),
   removeFriend: (username: string) => request<{ ok: true }>(`/friends/${encodeURIComponent(username)}`, { method: 'DELETE' }),
+  dashboard: () => request<DashboardView>('/dashboard'),
   lobbies: () => request<{ lobbies: LobbyView[] }>('/lobbies'),
   openWorld: () => request<{ online: number; valleys: number; resident: { valley: string } | null }>('/openworld'),
   deleteWorld: (seed: string) => request<{ ok: true }>(worldPath(seed), { method: 'DELETE' }),

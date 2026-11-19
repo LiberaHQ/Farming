@@ -1,7 +1,6 @@
-import { TitleScreen } from '@/components/menus/TitleScreen';
+import { redirect } from 'next/navigation';
 
-export const metadata = { title: 'Play — Harvest Valley' };
-
+/** The old title screen: everything on it now lives on the dashboard. */
 export default function StartPage() {
-  return <TitleScreen />;
+  redirect('/dashboard');
 }

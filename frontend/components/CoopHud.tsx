@@ -6,45 +6,51 @@ import { useGameEvent } from '@/hooks/useGameEvent';
 import { ChatBox } from './ChatBox';
 
 /**
- * Co-op overlay: the invite code and who's here (with a Trade button each),
- * how many are in bed, incoming trade requests, chat, and what happens when
- * the session ends.
+ * Who's here: the invite code (or, in the Open World, your valley and the
+ * tournament board) and the player list with Find and Trade buttons. It sits
+ * in the top-left column under the map info, folds into a small pill on phones,
+ * and steps aside while a menu is open or a Mine Dash run is on.
  */
-export function CoopHud() {
+export function CoopRoster() {
   const info = useGameEvent('coop:info');
   const members = useGameEvent('coop:members') ?? [];
   const sleep = useGameEvent('coop:sleep');
-  const reconnecting = useGameEvent('coop:reconnecting');
-  const ended = useGameEvent('coop:ended');
-  const [invites, setInvites] = useState<Array<{ from: string; name: string }>>([]);
+  const panel = useGameEvent('ui:panel')?.panel ?? null;
+  const running = useGameEvent('dash:state');
   const [copied, setCopied] = useState(false);
-
-  useEffect(
-    () =>
-      gameEvents.on('trade:incoming', (p) => {
-        setInvites((list) => [...list.filter((i) => i.from !== p.from), p]);
-        // Requests expire on the server after 30 seconds.
-        setTimeout(() => setInvites((list) => list.filter((i) => i.from !== p.from)), 30_000);
-      }),
-    [],
-  );
-
-  if (!info) return null;
-
-  const respond = (from: string, accept: boolean) => {
-    gameCommands.emit('trade:respond', { from, accept });
-    setInvites((list) => list.filter((i) => i.from !== from));
-  };
+  const [open, setOpen] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (open === null && typeof window !== 'undefined') setOpen(!window.matchMedia('(max-width: 760px)').matches);
+  }, [open]);
+  if (!info || panel || running) return null;
   const copy = () => {
     void navigator.clipboard?.writeText(info.code).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
   };
-
+  // Busy valleys start folded too.
+  const expanded = open ?? !(info.valley && members.length > 12);
+  const showRoster = true;
   return (
     <>
+      {showRoster && !expanded && (
+        <div className="hud-panel coop-pill">
+          <button type="button" className="btn" onMouseDown={(e) => e.preventDefault()} onClick={() => setOpen(true)} aria-label={`Show the ${members.length} players here`}>
+            {info.valley ? '🌍' : '👥'} {members.length}
+          </button>
+          {info.valley && (
+            <button type="button" className="btn btn-primary" onMouseDown={(e) => e.preventDefault()} onClick={() => gameCommands.emit('tournament:open', {})} aria-label="Tournaments">
+              🏆
+            </button>
+          )}
+        </div>
+      )}
+      {showRoster && expanded && (
       <div className="hud-panel coop-roster">
+        <button type="button" className="coop-fold" onMouseDown={(e) => e.preventDefault()} onClick={() => setOpen(false)} aria-label="Hide players">
+          ▾
+        </button>
         {info.valley ? (
           <div className="coop-code">
             <span className="hud-muted">🌍 Open World</span> <strong>{info.valley}</strong>
@@ -88,7 +94,45 @@ export function CoopHud() {
           </div>
         )}
       </div>
+      )}
 
+    </>
+  );
+}
+
+/**
+ * Co-op overlay: incoming trade requests, chat, the reconnecting banner, and
+ * what happens when the session ends. (The player list is CoopRoster.)
+ */
+export function CoopHud() {
+  const info = useGameEvent('coop:info');
+  const reconnecting = useGameEvent('coop:reconnecting');
+  const ended = useGameEvent('coop:ended');
+  const panel = useGameEvent('ui:panel')?.panel ?? null;
+  const running = useGameEvent('dash:state');
+  const [invites, setInvites] = useState<Array<{ from: string; name: string }>>([]);
+
+  useEffect(
+    () =>
+      gameEvents.on('trade:incoming', (p) => {
+        setInvites((list) => [...list.filter((i) => i.from !== p.from), p]);
+        // Requests expire on the server after 30 seconds.
+        setTimeout(() => setInvites((list) => list.filter((i) => i.from !== p.from)), 30_000);
+      }),
+    [],
+  );
+
+  if (!info) return null;
+
+  const respond = (from: string, accept: boolean) => {
+    gameCommands.emit('trade:respond', { from, accept });
+    setInvites((list) => list.filter((i) => i.from !== from));
+  };
+
+  const showChat = !running && (!panel || panel === 'trade');
+
+  return (
+    <>
       {invites.length > 0 && (
         <div className="trade-invites">
           {invites.map((i) => (
@@ -107,7 +151,7 @@ export function CoopHud() {
         </div>
       )}
 
-      <ChatBox />
+      {showChat && <ChatBox />}
 
       {reconnecting && !ended && (
         <div className="coop-reconnecting" role="status">
@@ -124,8 +168,8 @@ export function CoopHud() {
             <div className="panel-body">
               <p>{ended.reason}</p>
               <p className="hud-muted">Your progress in this world was saved.</p>
-              <a className="btn btn-primary" href="/start">
-                Back to title
+              <a className="btn btn-primary" href="/dashboard">
+                Back to dashboard
               </a>
             </div>
           </div>

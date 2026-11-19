@@ -121,7 +121,7 @@ export function Docs() {
           <section id="start" className="doc-section">
             <h2>Getting started</h2>
             <p>
-              Press <Link href="/start">Play</Link>, name a world and you start on a small farm with a cottage, a few tools and a handful of seeds. Play as a guest
+              Press <Link href="/dashboard">Play</Link>, name a world and you start on a small farm with a cottage, a few tools and a handful of seeds. Play as a guest
               (saves stay in your browser) or create an account to keep your worlds anywhere and play with friends.
             </p>
             <div className="doc-keys">
@@ -217,7 +217,7 @@ export function Docs() {
             <p>Signed-in players can open a world to friends. Up to {COOP.maxPlayers} people farm the same valley at once.</p>
             <div className="role-list">
               <RoleCard art={ready ? playerArt : undefined} title="Host" tag="Owner" tagKind="gold">
-                <p>Opens their world from the title screen with <b>Host co-op</b> and shares the join code, or lists the game as public under Open World → Public farms.</p>
+                <p>Opens their world from the dashboard with <b>Host co-op</b> and shares the join code, or lists the game as public under Open World → Public farms.</p>
                 <ul>
                   <li>Owns the farm, the farmhouse and the save.</li>
                   <li>Chooses the room settings: public or private, and whether to share one wallet.</li>
@@ -610,7 +610,7 @@ export function Docs() {
       </div>
       <footer className="site-footer">
         <span>
-          Ready? <Link href="/start">Start playing →</Link>
+          Ready? <Link href="/dashboard">Start playing →</Link>
         </span>
       </footer>
     </div>

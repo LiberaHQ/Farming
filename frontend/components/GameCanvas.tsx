@@ -191,8 +191,8 @@ export function GameCanvas({ seed, mode: modeProp }: { seed: string; mode: CoopM
       {error && (
         <div className="hud-loading hud-error">
           <p>{error}</p>
-          <a className="btn btn-primary" href="/start">
-            Back to title
+          <a className="btn btn-primary" href="/dashboard">
+            Back to dashboard
           </a>
         </div>
       )}

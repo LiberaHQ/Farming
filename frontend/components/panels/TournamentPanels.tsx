@@ -34,7 +34,15 @@ function Tournament({ t, kit, now }: { t: TournamentView; kit: MineDashKit; now:
           You: {t.myEntries} entr{t.myEntries > 1 ? 'ies' : 'y'}, best {t.myBest ?? '—'}
         </div>
       )}
-      {t.top.length > 0 && <div className="tournament-top">🏅 {t.top.map((r, i) => `${i + 1}. ${r.name} ${r.score}`).join(' · ')}</div>}
+      {t.top.length > 0 && (
+        <ol className="tournament-top">
+          {t.top.map((r, i) => (
+            <li key={i}>
+              {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`} {r.name} <b>{r.score}</b>
+            </li>
+          ))}
+        </ol>
+      )}
       {open && (
         <div className="tournament-actions">
           {!t.eligible ? (
@@ -73,19 +81,22 @@ export function TournamentPanel() {
   const list = (data?.tournaments ?? []).filter((t) => t.status === 'open' || t.myEntries > 0);
   return (
     <Panel title="🏆 Tournaments">
-      <p className="hud-muted">
-        Pay the entry fee in gold, then play your run any time before the tournament ends (each entry is one run; your best counts, up to {PRIZES.maxEntries}). 90% of
-        all fees go to the top fifth of players; 10% is burned. Too few players and everyone is refunded. Everyone plays the same mine.
-      </p>
+      <details className="tournament-help">
+        <summary>How tournaments work</summary>
+        <p className="hud-muted">
+          Pay the entry fee in gold, then play your run any time before the tournament ends (each entry is one run; your best counts, up to {PRIZES.maxEntries}). 90%
+          of all fees go to the top fifth of players; 10% is burned. Too few players and everyone is refunded. Everyone plays the same mine.
+        </p>
+      </details>
       <h3 className="panel-subtitle">Your kit</h3>
-      <div className="kit-row">
+      <div className="kit-row" role="radiogroup" aria-label="Kit">
         {(Object.keys(MINE_DASH_KITS) as MineDashKit[]).map((k) => (
-          <button key={k} type="button" className={`kit${kit === k ? ' kit-active' : ''}`} aria-pressed={kit === k} onClick={() => setKit(k)}>
-            <strong>{MINE_DASH_KITS[k].name}</strong>
-            <div className="hud-muted">{MINE_DASH_KITS[k].blurb}</div>
+          <button key={k} type="button" role="radio" className={`kit${kit === k ? ' kit-active' : ''}`} aria-checked={kit === k} onClick={() => setKit(k)}>
+            {MINE_DASH_KITS[k].name}
           </button>
         ))}
       </div>
+      <p className="hud-muted kit-blurb">{MINE_DASH_KITS[kit].blurb}</p>
       <div className="tournament-actions">
         <button type="button" className="btn" onClick={() => gameCommands.emit('dash:start', { tournamentId: null, kit })}>
           Practice run (free, doesn’t count)

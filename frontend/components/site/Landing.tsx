@@ -156,7 +156,7 @@ export function Landing() {
           <PixelLogo scale={10} className="hero-logo" />
           <p className="hero-tagline">A cozy pixel valley to farm, fish, mine, craft and build — alone or with friends, right in your browser.</p>
           <div className="hero-actions">
-            <Link className="site-btn site-btn-play site-btn-big" href="/start">
+            <Link className="site-btn site-btn-play site-btn-big" href="/dashboard">
               ▶ Play
             </Link>
             <Link className="site-btn site-btn-big" href="/docs">

@@ -1,0 +1,58 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+}
+/* Google draws its own button inside; keep it centred and full width up to its 400px limit. */
+.button {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+}
+.note {
+  font-size: 12px;
+  opacity: 0.8;
+  text-align: center;
+}
+.error {
+  color: var(--danger-text);
+  font-size: 13px;
+  text-align: center;
+}
+/* The title screen's row of account buttons. */
+.compact {
+  width: auto;
+  display: inline-flex;
+  vertical-align: middle;
+}
+.compact .button {
+  min-height: 32px;
+}
+.compactSlot {
+  display: inline-block;
+  width: 220px;
+  height: 32px;
+}
+/* Shown while developing when Google sign-in has no client ID: where the button goes. */
+.placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid #5f6368;
+  background: #131314;
+  color: #e3e3e3;
+  font: 500 14px/1 Roboto, Arial, sans-serif;
+  opacity: 0.6;
+  cursor: not-allowed;
+  width: 100%;
+}
+.compact .placeholder {
+  width: auto;
+  min-height: 32px;
+}

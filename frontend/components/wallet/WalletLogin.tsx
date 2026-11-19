@@ -10,7 +10,19 @@ import {
   RainbowKitProvider,
   type AuthenticationStatus,
 } from '@rainbow-me/rainbowkit';
-import { coinbaseWallet, injectedWallet, metaMaskWallet, rainbowWallet, walletConnectWallet } from '@rainbow-me/rainbowkit/wallets';
+import {
+  braveWallet,
+  coinbaseWallet,
+  injectedWallet,
+  ledgerWallet,
+  metaMaskWallet,
+  okxWallet,
+  phantomWallet,
+  rabbyWallet,
+  rainbowWallet,
+  trustWallet,
+  walletConnectWallet,
+} from '@rainbow-me/rainbowkit/wallets';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 import { createSiweMessage } from 'viem/siwe';
@@ -19,7 +31,7 @@ import { disconnect as disconnectCore } from 'wagmi/actions';
 import { arbitrum, avalanche, base, baseSepolia, bsc, gnosis, hardhat, linea, mainnet, optimism, polygon, polygonAmoy, scroll, sepolia, zksync } from 'wagmi/chains';
 
 /**
- * "Sign in with wallet": RainbowKit connects the wallet (MetaMask and friends),
+ * "Sign in with wallet": RainbowKit connects the wallet (Rainbow, MetaMask, Coinbase and friends),
  * then the player signs a Sign-In with Ethereum message. The backend checks the
  * signature and starts the same session cookie a password login does.
  *
@@ -47,15 +59,26 @@ const hasMetaMaskExtension =
  */
 const chains = [mainnet, base, baseSepolia, sepolia, polygon, polygonAmoy, optimism, arbitrum, bsc, linea, avalanche, zksync, scroll, gnosis, hardhat] as const;
 
+/**
+ * Rabby, Phantom and Brave connect through their browser extensions only, so
+ * they're always safe to list. Trust, OKX and Ledger (and Rainbow and
+ * WalletConnect itself) go through WalletConnect, so they need the project id.
+ */
 const connectors = connectorsForWallets(
   [
     {
       groupName: 'Popular',
       wallets: hasWalletConnect
-        ? [metaMaskWallet, coinbaseWallet, rainbowWallet, walletConnectWallet]
+        ? [rainbowWallet, metaMaskWallet, coinbaseWallet, walletConnectWallet]
         : hasMetaMaskExtension
-          ? [metaMaskWallet, coinbaseWallet, injectedWallet]
-          : [coinbaseWallet, injectedWallet],
+          ? [metaMaskWallet, coinbaseWallet]
+          : [coinbaseWallet],
+    },
+    {
+      groupName: 'More wallets',
+      wallets: hasWalletConnect
+        ? [trustWallet, okxWallet, rabbyWallet, phantomWallet, braveWallet, ledgerWallet, injectedWallet]
+        : [rabbyWallet, phantomWallet, braveWallet, injectedWallet],
     },
   ],
   { appName: 'Harvest Valley', projectId: projectId || 'valley-no-walletconnect' },

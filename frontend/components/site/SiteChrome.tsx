@@ -72,7 +72,7 @@ export function SiteHeader({ current }: { current?: 'docs' }) {
         <PixelLogo scale={3} />
       </Link>
       <nav className="site-actions">
-        <Link className="site-btn site-btn-play" href="/start">
+        <Link className="site-btn site-btn-play" href="/dashboard">
           ▶ Play
         </Link>
         <Link className={`site-btn${current === 'docs' ? ' is-current' : ''}`} href="/docs">

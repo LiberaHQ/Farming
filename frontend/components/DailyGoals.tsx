@@ -10,10 +10,13 @@ export function DailyGoals() {
   const state = useGameEvent('daily:state');
   const [open, setOpen] = useState(true);
   useEffect(() => {
+    // Phones start folded (there's little room); after that, the player's own choice is remembered.
+    const small = window.matchMedia('(max-width: 760px)').matches;
     try {
-      setOpen(window.localStorage.getItem(KEY) !== '0');
+      const saved = window.localStorage.getItem(KEY);
+      setOpen(saved === null ? !small : saved !== '0');
     } catch {
-      // Storage unavailable: start open.
+      setOpen(!small);
     }
   }, []);
   if (!state || !state.goals.length) return null;

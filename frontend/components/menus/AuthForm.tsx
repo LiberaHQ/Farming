@@ -4,10 +4,11 @@ import { MenuNav } from './MenuNav';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { WalletLogin } from '@/components/wallet';
+import { GoogleSignIn } from '@/components/auth/GoogleSignIn';
 import { useState } from 'react';
 import { api, ApiError } from '@/services/api';
 
-/** Log in or create an account. On success, back to the title screen. */
+/** Log in or create an account. On success, on to the dashboard. */
 export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
   const router = useRouter();
   const [username, setUsername] = useState('');
@@ -23,7 +24,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
     try {
       if (isRegister) await api.register(username, password);
       else await api.login(username, password);
-      router.push('/start');
+      router.push('/dashboard');
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Something went wrong.');
@@ -41,6 +42,17 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
         </p>
       </header>
       <form className="card auth-form" onSubmit={submit}>
+        <GoogleSignIn
+          mode={mode}
+          onSignedIn={(_user, created) => {
+            // New Google players go straight to making their farmer; returning ones to the dashboard.
+            router.push(created ? '/profile' : '/dashboard');
+            router.refresh();
+          }}
+        />
+        <div className="auth-or">
+          <span>or with a username</span>
+        </div>
         <label>
           <span>Username</span>
           <input
@@ -76,8 +88,11 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
         <div className="auth-or">
           <span>or</span>
         </div>
-        <WalletLogin signedIn={false} onSignedIn={() => router.push('/start')} label={isRegister ? '🦊 Sign up with a wallet' : '🦊 Log in with a wallet'} />
-        <small className="hud-muted">MetaMask or any Ethereum wallet. You sign a message to prove it's yours — no fees, no transaction. A new account is made the first time.</small>
+        <WalletLogin signedIn={false} onSignedIn={() => router.push('/dashboard')} label={isRegister ? '🦊 Sign up with a wallet' : '🦊 Log in with a wallet'} />
+        <small className="hud-muted">
+          Rainbow, MetaMask, Coinbase or any Ethereum wallet, through RainbowKit. You sign a message to prove it&apos;s yours — no fees, no transaction. A new account is made
+          the first time.
+        </small>
         <p className="hud-muted">
           {isRegister ? (
             <>
@@ -88,7 +103,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'register' }) {
               New here? <Link href="/register">Create an account</Link>
             </>
           )}{' '}
-          · <Link href="/start">Back</Link>
+          · <Link href="/dashboard">Back</Link>
         </p>
       </form>
     </main>

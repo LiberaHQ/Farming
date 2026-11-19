@@ -1,6 +1,7 @@
 import express, { Router } from 'express';
 import { config } from '../config';
-import { loginHandler, logoutHandler, meHandler, registerHandler, siweNonceHandler, siweVerifyHandler } from '../controllers/authController';
+import { googleConfigHandler, googleSignInHandler, loginHandler, logoutHandler, meHandler, registerHandler, siweNonceHandler, siweVerifyHandler } from '../controllers/authController';
+import { dashboardHandler } from '../controllers/dashboardController';
 import { gameDataHandler } from '../controllers/gameDataController';
 import { getProfile, patchProfile } from '../controllers/profileController';
 import {
@@ -30,6 +31,8 @@ api.post('/auth/login', authLimit, requireDatabase, express.json(), loginHandler
 api.post('/auth/logout', requireDatabase, logoutHandler);
 api.get('/auth/siwe/nonce', rateLimit(40, 60_000), requireDatabase, siweNonceHandler);
 api.post('/auth/siwe/verify', authLimit, requireDatabase, express.json(), siweVerifyHandler);
+api.get('/auth/google/config', googleConfigHandler);
+api.post('/auth/google', authLimit, requireDatabase, express.json(), googleSignInHandler);
 api.get('/auth/me', meHandler);
 
 // Profile
@@ -49,3 +52,4 @@ api.post('/friends', requireDatabase, requireUser, rateLimit(20, 60_000), expres
 api.delete('/friends/:username', requireDatabase, requireUser, removeFriendHandler);
 api.get('/lobbies', lobbiesHandler);
 api.get('/openworld', openWorldHandler);
+api.get('/dashboard', requireDatabase, requireUser, dashboardHandler);

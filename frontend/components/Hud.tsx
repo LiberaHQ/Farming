@@ -22,7 +22,7 @@ import { FreightPanel } from './panels/FreightPanel';
 import { NightMarketPanel } from './panels/NightMarketPanel';
 import { TradePanel } from './panels/TradePanel';
 import { PlayerTradePanel } from './panels/PlayerTradePanel';
-import { CoopHud } from './CoopHud';
+import { CoopHud, CoopRoster } from './CoopHud';
 import { ElevatorPanel } from './panels/ElevatorPanel';
 import { CampPanel, DashHud, DashResultPanel, TournamentPanel } from './panels/TournamentPanels';
 import { MailPanel } from './panels/MailPanel';
@@ -63,6 +63,7 @@ export function Hud() {
   const area = useGameEvent('area:label');
   const waypoint = useGameEvent('waypoint:info');
   const boss = useGameEvent('mine:boss');
+  const running = useGameEvent('dash:state');
   const { uiScale, keys, touch } = useSettings();
   const coarse = useCoarsePointer();
   const touchOn = touch === 'on' || (touch === 'auto' && coarse);
@@ -75,7 +76,7 @@ export function Hud() {
       {world && (
         <div className="hud-top-left-stack">
         <div className="hud-panel hud-top-left">
-          <div>
+          <div className="hud-seed">
             Seed <strong>{world.seed}</strong>
           </div>
           {mine ? (
@@ -98,6 +99,17 @@ export function Hud() {
             Map <kbd>{k('map')}</kbd>
           </button>
         </div>
+        <DashHud />
+        {/* On mid-size screens the boss bar sits in this column so it can't cover the floor info. */}
+        {boss && mine && (
+          <div className="hud-panel boss-bar boss-bar-docked">
+            <strong>{boss.name}</strong>
+            <div className="track">
+              <div className="fill" style={{ width: `${(boss.hp / boss.maxHp) * 100}%` }} />
+            </div>
+          </div>
+        )}
+        <CoopRoster />
         <Minimap />
         </div>
       )}
@@ -117,7 +129,7 @@ export function Hud() {
       )}
 
       {boss && mine && (
-        <div className="hud-panel boss-bar">
+        <div className="hud-panel boss-bar boss-bar-floating">
           <strong>{boss.name}</strong>
           <div className="track">
             <div className="fill" style={{ width: `${(boss.hp / boss.maxHp) * 100}%` }} />
@@ -164,7 +176,7 @@ export function Hud() {
       {!panel && <ActionButton />}
       <div className="hud-right-column">
         <BuffBar />
-        {world && <DailyGoals />}
+        {world && !running && <DailyGoals />}
       </div>
       <Hotbar />
       <Toasts />
@@ -179,7 +191,6 @@ export function Hud() {
       {panel === 'tournaments' && <TournamentPanel />}
       {panel === 'camp' && <CampPanel />}
       {panel === 'dashResult' && <DashResultPanel />}
-      <DashHud />
       {panel === 'market' && <NightMarketPanel />}
       {panel === 'mine' && <ElevatorPanel />}
       {panel === 'mail' && <MailPanel />}

@@ -4,7 +4,7 @@ import { HttpError } from '../api/errors';
 import { findProfile, updateProfile, type ProfileRow } from '../models/profileModel';
 import { listWorlds } from '../models/worldModel';
 
-const view = (p: ProfileRow) => ({ displayName: p.display_name, appearance: p.appearance, updatedAt: p.updated_at.getTime() });
+const view = (p: ProfileRow) => ({ displayName: p.display_name, appearance: p.appearance, motto: p.motto ?? '', updatedAt: p.updated_at.getTime() });
 
 export const getProfile: RequestHandler = async (req, res) => {
   const profile = await findProfile(req.user!.id);
@@ -28,12 +28,18 @@ function parseAppearance(value: unknown): AppearanceChoice {
 
 export const patchProfile: RequestHandler = async (req, res) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
-  const changes: { displayName?: string; appearance?: AppearanceChoice } = {};
+  const changes: { displayName?: string; appearance?: AppearanceChoice; motto?: string } = {};
   if (body.displayName !== undefined) {
     const name = typeof body.displayName === 'string' ? body.displayName.trim() : '';
     if (name.length < 1 || name.length > 24) throw new HttpError(400, 'Display name must be 1–24 characters.');
     changes.displayName = name;
   }
   if (body.appearance !== undefined) changes.appearance = parseAppearance(body.appearance);
+  if (body.motto !== undefined) {
+    if (typeof body.motto !== 'string') throw new HttpError(400, 'Invalid motto.');
+    const motto = body.motto.replace(/\s+/g, ' ').trim();
+    if (motto.length > 80) throw new HttpError(400, 'Keep your motto under 80 characters.');
+    changes.motto = motto;
+  }
   res.json({ profile: view(await updateProfile(req.user!.id, changes)) });
 };

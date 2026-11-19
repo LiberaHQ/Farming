@@ -18,7 +18,7 @@ const LABELS: Record<AppearancePart, string> = {
 };
 
 /** Names for the parts picked by style. */
-const STYLE_NAMES: Partial<Record<AppearancePart, string[]>> = {
+export const STYLE_NAMES: Partial<Record<AppearancePart, string[]>> = {
   hairStyle: ['Short', 'Long', 'Ponytail', 'Bun', 'Curly', 'Spiky', 'Bob'],
   hat: ['None', 'Straw hat', 'Cap', 'Beanie', 'Bandana', 'Flower'],
   outfit: ['Shirt', 'T-shirt', 'Overalls', 'Dress'],

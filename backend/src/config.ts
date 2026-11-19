@@ -23,6 +23,12 @@ export const config = {
   embeddedDataDir: process.env.PGLITE_DATA_DIR ?? path.join(backendRoot, '.data', 'pglite'),
   /** Session lifetime. */
   sessionDays: Number(process.env.SESSION_DAYS ?? 30),
+  /**
+   * Sign in with Google: the OAuth client ID from Google Cloud Console
+   * (APIs & Services → Credentials → OAuth client ID → Web application).
+   * Unset = the Google button is hidden.
+   */
+  googleClientId: process.env.GOOGLE_CLIENT_ID?.trim() || null,
   /** Largest save upload accepted. */
   maxSaveBytes: 2 * 1024 * 1024,
 } as const;

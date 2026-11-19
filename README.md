@@ -367,7 +367,20 @@ Fortune, a treat cart, and Pip the barker at the ticket booth.
   account tied to that address (`users.wallet_address`, migration `004_wallets.sql`). Routes:
   `GET /api/auth/siwe/nonce`, `POST /api/auth/siwe/verify`. Phone wallets and QR codes need a free WalletConnect
   project id in `frontend/.env.local` (`NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`, see `frontend/.env.example`);
-  browser extensions work without one. Smart-contract wallets (ERC-1271) aren't supported yet.
+  browser extensions work without one. Smart-contract wallets (ERC-1271) aren't supported yet. The RainbowKit
+  picker lists Rainbow, MetaMask, Coinbase and WalletConnect, plus Trust, OKX, Rabby, Phantom, Brave and Ledger;
+  without a WalletConnect project id it shows only the wallets that don't need it (Coinbase, browser extensions).
+- **Sign in with Google** ("Continue with Google", first on the login and sign-up pages): Google's own button
+  gives the browser an ID token, and the backend (`services/googleService.ts`) checks Google's signature
+  against Google's published keys (no extra library), the issuer, that it was made for our client ID, the
+  expiry, and that the email is verified. The first sign-in makes an account (username from the email, display
+  name from the Google name, no password), later ones log in, and a signed-in player who uses it links Google
+  to their existing account (`users.google_sub`, migration `008_google_login.sql`). Routes:
+  `GET /api/auth/google/config`, `POST /api/auth/google`. **Setup:** in Google Cloud Console create an OAuth
+  client ID (APIs & Services → Credentials → Create credentials → OAuth client ID → Web application), add
+  your site under "Authorized JavaScript origins" (e.g. `http://localhost:3000` and your real domain), and put
+  the client ID in `backend/.env` as `GOOGLE_CLIENT_ID=…` (no client secret needed). Without it the button is
+  hidden.
 
 ## The deeper mine
 

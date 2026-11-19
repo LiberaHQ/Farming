@@ -83,7 +83,7 @@ export function ProfilePage() {
       <header className="title">
         <h1>{profile.displayName}</h1>
         <p className="hud-muted">
-          <Link href="/start">← Back to title</Link>
+          <Link href="/dashboard">← Back to dashboard</Link>
         </p>
       </header>
 
