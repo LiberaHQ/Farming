@@ -4,6 +4,7 @@ export * from './types/world';
 export * from './types/player';
 export * from './game-config';
 export * from './types/save';
+export * from './validation/migrate';
 export * from './validation/save';
 export * from './world';
 export * from './net/protocol';

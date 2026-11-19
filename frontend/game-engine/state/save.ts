@@ -1,4 +1,4 @@
-import { SAVE_VERSION, type SaveData, type WorldSummary } from '@farming/shared';
+import { SAVE_VERSION, applyMigrations, type SaveData, type WorldSummary } from '@farming/shared';
 
 export { SAVE_VERSION };
 export type { SaveData };
@@ -47,8 +47,13 @@ export class LocalSaveStore implements SaveStore {
     try {
       const raw = window.localStorage.getItem(this.keyFor(seed));
       if (!raw) return null;
-      const data = JSON.parse(raw) as SaveData;
-      return data?.version === SAVE_VERSION && data.seed === seed ? data : null;
+      // A save left here by an older build is upgraded on the way out, rather
+      // than being treated as missing. The copy in storage is rewritten at the
+      // next save, which the game does on sleep, on tab-hide and on exit.
+      const upgraded = applyMigrations(JSON.parse(raw));
+      if (!upgraded.ok) return null;
+      const data = upgraded.data as unknown as SaveData;
+      return data.seed === seed ? data : null;
     } catch {
       return null;
     }

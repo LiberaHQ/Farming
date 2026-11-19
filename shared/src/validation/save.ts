@@ -24,6 +24,7 @@ import { MAX_REDEEMED_PARCELS, type HeirloomSave } from '../game-config/heirloom
 import { FERRY_OFFERS_PER_NIGHT, type NightMarketSave } from '../game-config/nightMarket';
 import { TIDE_BEDS, TIDE_CROPS, isTideCropId, type TidalSave } from '../game-config/tidal';
 import { FREIGHT_MAX_CONTRACTS, FREIGHT_STATUSES, TOWN_IDS, freightUnitPrice, isTownId, type FreightContract, type FreightSave, type FreightStatus } from '../game-config/freight';
+import { applyMigrations } from './migrate';
 import type { WorldObjectKind, WorldObjectSpec } from '../types/world';
 
 /**
@@ -312,10 +313,12 @@ function quests(v: unknown): QuestSave | undefined {
 }
 
 export function validateSave(input: unknown, expectedSeed?: string): SaveValidation {
+  // An older save is walked up to the current version before anything is checked,
+  // so the rules below only ever see today's shape.
+  const upgraded = applyMigrations(input);
+  if (!upgraded.ok) return { ok: false, error: upgraded.error };
   try {
-    if (!isObj(input)) fail('Save must be an object');
-    const s = input as Record<string, unknown>;
-    if (s.version !== SAVE_VERSION) fail(`Unsupported save version (expected ${SAVE_VERSION})`);
+    const s = upgraded.data;
     if (typeof s.seed !== 'string' || s.seed.length < 1 || s.seed.length > 64) fail('seed must be 1–64 characters');
     if (expectedSeed !== undefined && s.seed !== expectedSeed) fail('seed does not match the world');
 
